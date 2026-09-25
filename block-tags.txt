@@ -1,0 +1,78 @@
+# Tags that black out a manga. One per line, upper/lower case and accents don't matter.
+#   word     blocks any tag containing this whole word ("adult" blocks "Adult Content")
+#   word*    also blocks longer words starting with it ("eroti*" blocks "Erotica", "Erotique")
+#   !tag     never blocks a tag that is exactly this ("!young adult")
+# Chinese, Japanese, Korean and Arabic words match anywhere inside a tag.
+# After changing this file, the extensions rebuild by themselves within the hour.
+
+# hentai and ecchi
+hentai
+ecchi
+etchi
+echi
+smut
+eroti*
+erotik*
+porn*
+nsfw
+18+
++18
+r18
+r-18
+ab 18
+adult
+adults
+adulto
+adultos
+adulte
+adultes
+adulti
+mature
+maduro
+sexual*
+sex
+sexy
+nudity
+fanservice
+fan service
+suggestive
+lolicon
+loli
+shotacon
+shota
+yaoi
+yuri
+dewasa
+nguoi lon
+yetiskin
+!young adult
+
+# Russian
+хентай
+эротика
+этти
+эччи
+экчи
+для взрослых
+порно
+яой
+юри
+
+# Arabic
+هنتاي
+ايتشي
+إيتشي
+للكبار
+ناضج
+
+# Chinese, Japanese, Korean
+色情
+情色
+成人
+工口
+18禁
+エロ
+エッチ
+アダルト
+成人向け
+성인
