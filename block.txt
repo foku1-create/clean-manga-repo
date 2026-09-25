@@ -1,0 +1,2 @@
+# Extra extensions to remove even though Keiyoushi marks them "safe".
+# One name or package per line, e.g.  ManhuaHot
