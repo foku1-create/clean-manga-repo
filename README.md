@@ -10,12 +10,16 @@ The sites themselves stay normal.
 
 ## What the guard does
 
-- In lists and searches, a blocked title shows as **Blocked** with a black cover.
-- A cover only appears once that title's tags have been checked. The first time you scroll a list, covers take a few seconds.
+- Every list and search is checked **before** the app gets it: each title's tags are looked up first.
+  A blocked title arrives as **Blocked** with a black cover, so its real name and cover never reach the app,
+  however the app loads or caches covers.
+- A list waits at most 12 seconds for these checks. A title that is not checked by then shows as **Checking**
+  (black, like a blocked one). Reload the list a moment later and the clean ones appear.
+- Every answer is remembered, also after the app restarts, so a list you have seen before opens straight away.
+  Changing `block-tags.txt` makes the guard check the clean ones again.
 - Opening a blocked title shows **Blocked** and no chapters. Chapters you had before cannot be opened.
-- Blocked titles are remembered, also after the app restarts.
 
-The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai, ecchi, smut, adult, mature, erotica, the same words in other languages, and MangaDex's "suggestive" rating).
+The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai, ecchi, smut, adult, mature, erotica, yaoi and yuri including "Boys' Love" and "Girls' Love", the same words in other languages, and MangaDex's "suggestive" rating).
 Change that file and every extension is rebuilt within the hour.
 
 ## Add it to Tachimanga
@@ -30,6 +34,8 @@ https://github.com/foku1-create/clean-manga-repo/raw/main/index.pb
 
 4. Uninstall the extensions you already have, then install them again from this list.
    Only extensions installed from this list have the guard.
+5. Do this on **every** device (iPhone, iPad, Mac). Each one keeps its own extensions.
+   When the guard improves, the extensions show an update: press **Update all** on each device.
 
 ## Files
 

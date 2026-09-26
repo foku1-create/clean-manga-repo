@@ -42,6 +42,23 @@ shotacon
 shota
 yaoi
 yuri
+# the same as yaoi and yuri, under the names MangaDex and many sites use
+boys' love
+boys love
+boy's love
+girls' love
+girls love
+girl's love
+shounen ai
+shonen ai
+shounen-ai
+shonen-ai
+shoujo ai
+shojo ai
+shoujo-ai
+shojo-ai
+bl
+gl
 dewasa
 nguoi lon
 yetiskin
@@ -76,3 +93,6 @@ yetiskin
 アダルト
 成人向け
 성인
+百合
+耽美
+ボーイズラブ

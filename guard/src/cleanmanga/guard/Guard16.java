@@ -17,26 +17,26 @@ public final class Guard16 {
 
     public static Object getPopularManga(GuardHost16 h, int page, Continuation<Object> c) {
         Guard.attach(h);
-        GuardCont gc = new GuardCont(c, GuardCont.PAGE, null);
+        GuardCont gc = new GuardCont(h, c, GuardCont.PAGE, null);
         return gc.done(h.getPopularManga$gorig(page, gc));
     }
 
     public static Object getLatestUpdates(GuardHost16 h, int page, Continuation<Object> c) {
         Guard.attach(h);
-        GuardCont gc = new GuardCont(c, GuardCont.PAGE, null);
+        GuardCont gc = new GuardCont(h, c, GuardCont.PAGE, null);
         return gc.done(h.getLatestUpdates$gorig(page, gc));
     }
 
     public static Object getSearchManga(GuardHost16 h, int page, String query, FilterList filters, Continuation<Object> c) {
         Guard.attach(h);
-        GuardCont gc = new GuardCont(c, GuardCont.PAGE, null);
+        GuardCont gc = new GuardCont(h, c, GuardCont.PAGE, null);
         return gc.done(h.getSearchManga$gorig(page, query, filters, gc));
     }
 
     /** Always loads the details too, so the tags are known before any chapter is handed out. */
     public static Object getMangaUpdate(GuardHost16 h, SManga manga, List<?> chapters, boolean fetchDetails, boolean fetchChapters, Continuation<Object> c) {
         Guard.attach(h);
-        GuardCont gc = new GuardCont(c, GuardCont.UPDATE, Safe.url(manga));
+        GuardCont gc = new GuardCont(h, c, GuardCont.UPDATE, Safe.url(manga));
         return gc.done(h.getMangaUpdate$gorig(manga, chapters, true, fetchChapters, gc));
     }
 
@@ -48,7 +48,7 @@ public final class Guard16 {
 
     public static Object fetchRelatedMangaList(GuardHost16 h, SManga manga, Continuation<Object> c) {
         Guard.attach(h);
-        GuardCont gc = new GuardCont(c, GuardCont.RELATED, null);
+        GuardCont gc = new GuardCont(h, c, GuardCont.RELATED, null);
         return gc.done(h.fetchRelatedMangaList$gorig(manga, gc));
     }
 

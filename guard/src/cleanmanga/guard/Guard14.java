@@ -14,29 +14,32 @@ import java.util.concurrent.TimeUnit;
 /** Entry points for extension API 1.4. The patcher makes each guarded method call one of these. */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public final class Guard14 {
-    private static final Func1 PAGE = new Func1() {
-        @Override
-        public Object call(Object page) {
-            return Guard.page((MangasPage) page);
-        }
-    };
-
     private Guard14() {
+    }
+
+    /** Screens a page before the app sees it. Runs on the thread that loaded the page, which already waits for it. */
+    private static Func1 page(final GuardHost14 h) {
+        return new Func1() {
+            @Override
+            public Object call(Object page) {
+                return Guard.page(h, (MangasPage) page);
+            }
+        };
     }
 
     public static Observable fetchPopularManga(GuardHost14 h, int page) {
         Guard.attach(h);
-        return ((Observable) h.fetchPopularManga$gorig(page)).map(PAGE);
+        return ((Observable) h.fetchPopularManga$gorig(page)).map(page(h));
     }
 
     public static Observable fetchLatestUpdates(GuardHost14 h, int page) {
         Guard.attach(h);
-        return ((Observable) h.fetchLatestUpdates$gorig(page)).map(PAGE);
+        return ((Observable) h.fetchLatestUpdates$gorig(page)).map(page(h));
     }
 
     public static Observable fetchSearchManga(GuardHost14 h, int page, String query, FilterList filters) {
         Guard.attach(h);
-        return ((Observable) h.fetchSearchManga$gorig(page, query, filters)).map(PAGE);
+        return ((Observable) h.fetchSearchManga$gorig(page, query, filters)).map(page(h));
     }
 
     public static Observable fetchMangaDetails(GuardHost14 h, SManga manga) {
@@ -85,7 +88,7 @@ public final class Guard14 {
 
     public static Object fetchRelatedMangaList(GuardHost14 h, SManga manga, Continuation<Object> c) {
         Guard.attach(h);
-        GuardCont gc = new GuardCont(c, GuardCont.RELATED, null);
+        GuardCont gc = new GuardCont(h, c, GuardCont.RELATED, null);
         return gc.done(h.fetchRelatedMangaList$gorig(manga, gc));
     }
 
