@@ -60,7 +60,6 @@ Doujinku (doujinku): adult
 Doujins (doujins): adult
 DoujinsHell (doujinshell): adult
 Doujiva (doujiva): adult
-DreComi+ (drecomics): adult
 DreamTeams Scans (dreamteamsscans): adult
 Dua Leo Truyen (dualeotruyen): adult
 Duskoryvile (duskoryvile): adult
@@ -299,7 +298,6 @@ Simply Cosplay (simplycosplay): adult
 Simply Hentai (simplyhentai): adult
 SinhSieuSao (sinhsieusao): adult
 Siyah Melek (siyahmelek): adult
-Sokuyomi (sokuyomi): adult
 SpyFakku (spyfakku): adult
 Starlight Scan (starlightscan): adult
 StashApp (stashapp): adult
