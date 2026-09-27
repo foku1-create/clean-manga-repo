@@ -1,3 +1,0 @@
-# Extensions to keep even though Keiyoushi marks them NSFW (adult sites). They get the guard too.
-# One name or package per line, e.g.  SomeSite
-# Adult sites are mostly adult titles; keeping one is rarely worth it. Empty on purpose.

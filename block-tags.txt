@@ -63,6 +63,9 @@ dewasa
 nguoi lon
 yetiskin
 !young adult
+# AniList (asked about titles on adult-labelled sites) uses these for normal series with grown-up characters
+!primarily adult cast
+!adult cast
 
 # Russian
 хентай

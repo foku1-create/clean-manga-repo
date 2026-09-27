@@ -42,13 +42,13 @@ public final class Guard14 {
         return ((Observable) h.fetchSearchManga$gorig(page, query, filters)).map(page(h));
     }
 
-    public static Observable fetchMangaDetails(GuardHost14 h, SManga manga) {
+    public static Observable fetchMangaDetails(final GuardHost14 h, SManga manga) {
         Guard.attach(h);
         final String url = Safe.url(manga);
         return ((Observable) h.fetchMangaDetails$gorig(manga)).map(new Func1() {
             @Override
             public Object call(Object details) {
-                Guard.judgeDetails(url, (SManga) details);
+                Guard.judgeDetails(h, url, (SManga) details);
                 return details;
             }
         });
@@ -73,7 +73,8 @@ public final class Guard14 {
         return details.flatMap(new Func1() {
             @Override
             public Object call(Object d) {
-                boolean blocked = d == null ? h.guard$mixed() : Guard.judgeDetails(url, (SManga) d);
+                Boolean v = d == null ? null : Guard.judgeDetails(h, url, (SManga) d);
+                boolean blocked = v == null ? h.guard$mixed() : v;
                 if (blocked) return Observable.just(Collections.emptyList());
                 return h.fetchChapterList$gorig(manga);
             }

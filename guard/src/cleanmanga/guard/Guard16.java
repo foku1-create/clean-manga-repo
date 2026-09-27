@@ -52,10 +52,12 @@ public final class Guard16 {
         return gc.done(h.fetchRelatedMangaList$gorig(manga, gc));
     }
 
-    static Object update(String url, Object result) {
+    static Object update(GuardHost h, String url, Object result) {
         SMangaUpdate u = (SMangaUpdate) result;
-        if (!Guard.judgeDetails(url, u.getManga())) return u;
-        Guard.blockChapters(u.getChapters());
+        Boolean blocked = Guard.judgeDetails(h, url, u.getManga());
+        if (Boolean.FALSE.equals(blocked)) return u;
+        // not sure (AniList could not be asked): no chapters this time, but nothing remembered
+        if (blocked != null) Guard.blockChapters(u.getChapters());
         return new SMangaUpdate(u.getManga(), Collections.<SChapter>emptyList());
     }
 

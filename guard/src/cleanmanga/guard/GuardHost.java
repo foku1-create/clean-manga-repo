@@ -9,13 +9,18 @@ import okhttp3.OkHttpClient;
  * extension's own, unguarded implementations, renamed so the guard can sit in front of them.
  */
 public interface GuardHost {
-    /** True for sites Keiyoushi marks "mixed": a failed check then counts as blocked. */
+    /** True for sites Keiyoushi marks "mixed" or "adult": a failed check then counts as blocked. */
     boolean guard$mixed();
+
+    /** True for sites Keiyoushi marks "adult": a title only shows when AniList confirms it clean, and the site itself never opens. */
+    boolean guard$strict();
 
     /** The extension's package name, to keep each extension's memory apart. */
     String guard$pkg();
 
     OkHttpClient getClient$gorig();
+
+    String getBaseUrl$gorig();
 
     String getMangaUrl$gorig(SManga manga);
 

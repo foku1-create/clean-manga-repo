@@ -2,10 +2,10 @@
 
 A copy of the [Keiyoushi](https://github.com/keiyoushi/extensions) extension list for Tachimanga (and Mihon)
 where every extension carries a small guard: **manga tagged hentai, ecchi or adult show up black and cannot be opened.**
-The sites themselves stay normal.
+Every site stays in the list; only the bad titles on it are blacked out.
 
-- Sites Keiyoushi labels **safe** or **mixed** (normal and adult titles on the same site) are kept, with the guard inside.
-- Sites labelled **NSFW** (adult sites) stay out completely.
+- Sites Keiyoushi labels **safe** or **mixed** (normal and adult titles on the same site): a title is blocked when its tags say so.
+- Sites labelled **NSFW** (mostly adult sites) get the **strict** guard, see below.
 - The list refreshes itself every hour, so updates and new extensions keep arriving.
 
 ## What the guard does
@@ -21,6 +21,17 @@ The sites themselves stay normal.
 
 The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai, ecchi, smut, adult, mature, erotica, yaoi and yuri including "Boys' Love" and "Girls' Love", the same words in other languages, and MangaDex's "suggestive" rating).
 Change that file and every extension is rebuilt within the hour.
+
+### Strict guard on adult-labelled sites
+
+On a site that is mostly adult, the adult titles are often not tagged as adult at all, so tags are not enough there.
+On these sites a title only shows when [AniList](https://anilist.co) knows a manga with **exactly that title** and
+confirms it is clean: not marked adult, not hentai or ecchi, no adult tag, no tag from `block-tags.txt`.
+
+- A title AniList does not know stays **Blocked**, even if it is harmless. New or obscure series therefore stay black.
+- AniList answers about 25 questions a minute (8 titles each). A site that lists hundreds of titles at once
+  shows mostly **Checking** the first time; reload after a minute or two.
+- The site itself never opens: "open in browser" and "share" lead to this page instead.
 
 ## Add it to Tachimanga
 
@@ -41,6 +52,6 @@ https://github.com/foku1-create/clean-manga-repo/raw/main/index.pb
 
 - `build.py` builds everything: picks the extensions, patches the guard in, signs, uploads, writes `index.pb`.
 - `guard/` is the guard itself; `tools/Patcher.java` puts it in front of the extension; `tools/ApkPatcher.java` makes the Android version.
-- `allow.txt` keeps a chosen NSFW-labelled extension (with the guard), `block.txt` removes a chosen extension.
+- `block.txt` removes a chosen extension completely.
 - `removed.txt` lists everything that was left out, and why.
 - Patched files are signed with this repo's own key and stored as release files (`files-0` … `files-7`).

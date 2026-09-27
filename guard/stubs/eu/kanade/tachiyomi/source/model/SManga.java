@@ -18,6 +18,10 @@ public interface SManga {
     void setDescription(String value);
     String getGenre();
     void setGenre(String value);
+    int getStatus();
+    void setStatus(int value);
+    boolean getInitialized();
+    void setInitialized(boolean value);
 
     final class Companion {
         public SManga create() {

@@ -16,6 +16,14 @@ final class Safe {
         }
     }
 
+    static String title(SManga m) {
+        try {
+            return m.getTitle();
+        } catch (Throwable e) {
+            return null;
+        }
+    }
+
     static String genre(SManga m) {
         try {
             return m.getGenre();

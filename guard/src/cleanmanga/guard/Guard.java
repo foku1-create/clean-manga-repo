@@ -40,8 +40,10 @@ public final class Guard {
     static final long LIST_BUDGET_MS = 12_000;
     /** Tag checks one list runs at the same time. */
     static final int LIST_PARALLEL = 6;
-    /** Clean verdicts are only valid for the tag list they were made with. */
-    static final String CLEAN = "clean_manga_" + Integer.toHexString(Arrays.hashCode(Tags.LINES));
+    /** Clean verdicts are only valid for the tag list and checking rules they were made with. */
+    static final String CLEAN = "clean_manga_" + Integer.toHexString(Arrays.hashCode(Tags.LINES) * 31 + 3);
+    /** Where the app is sent instead of an adult site or a blocked title. */
+    static final String BLOCKED_PAGE = "https://github.com/foku1-create/clean-manga-repo";
     private static final Object FAILED = new Object();
 
     private static final List<String> WHOLE = new ArrayList<>();
@@ -184,14 +186,27 @@ public final class Guard {
         remember(Store.CHAPTERS, urls);
     }
 
-    /** Judges a manga whose details (and so all tags) are known. Returns true when blocked. */
-    static boolean judgeDetails(String url, SManga details) {
-        return judge(url, details, true);
+    /**
+     * Judges a manga whose details (and so all tags) are known. Returns true when blocked, false
+     * when clean, null when an adult-labelled site's title could not be checked with AniList
+     * (it is blacked out this time, but nothing is remembered).
+     */
+    static Boolean judgeDetails(GuardHost host, String url, SManga details) {
+        return judge(host, url, details, true);
     }
 
     /** saveClean: false when the caller saves clean verdicts itself, in one go. */
-    private static boolean judge(String url, SManga details, boolean saveClean) {
+    private static Boolean judge(GuardHost host, String url, SManga details, boolean saveClean) {
         boolean blocked = details != null && tagsBlocked(Safe.genre(details));
+        if (!blocked && host.guard$strict()) {
+            Boolean ok = details == null ? Boolean.FALSE : Verify.clean(host, Safe.title(details));
+            if (ok == null) {
+                gateCover(snapshot(details));
+                blackout(details);
+                return null;
+            }
+            blocked = !ok;
+        }
         if (url == null && details != null) url = Safe.url(details);
         if (url != null) {
             Boolean before = VERDICTS.put(url, blocked);
@@ -239,14 +254,67 @@ public final class Guard {
 
     public static String getMangaUrl(GuardHost h, SManga manga) {
         attach(h);
+        if (h.guard$strict()) return BLOCKED_PAGE;
         if (Boolean.TRUE.equals(verdict(Safe.url(manga)))) return NOWHERE;
         return h.getMangaUrl$gorig(manga);
     }
 
     public static String getChapterUrl(GuardHost h, eu.kanade.tachiyomi.source.model.SChapter chapter) {
         attach(h);
+        if (h.guard$strict()) return BLOCKED_PAGE;
         if (isBlockedChapter(Safe.chapterUrl(chapter))) return NOWHERE;
         return h.getChapterUrl$gorig(chapter);
+    }
+
+    /**
+     * The site's address. The extension and the extension library get the real one, so the site
+     * keeps working. For an adult-labelled site, anyone else (the app's "open in browser") gets
+     * {@link #BLOCKED_PAGE}, so the site itself never opens.
+     */
+    public static String getBaseUrl(GuardHost h) {
+        String real = h.getBaseUrl$gorig();
+        if (!h.guard$strict() || calledFromInside()) return real;
+        return BLOCKED_PAGE;
+    }
+
+    /** Frames that only pass a call along; the frame above them decides. */
+    private static final String[] PASSING = {"java.", "javax.", "jdk.", "sun.", "kotlin.", "kotlinx.", "rx.", "okhttp3.", "okio.", "dalvik."};
+    /** The extension library the app provides, and code shipped in extensions. */
+    private static final String[] INSIDE = {"eu.kanade.tachiyomi.source.", "eu.kanade.tachiyomi.network.",
+            "eu.kanade.tachiyomi.extension.", "eu.kanade.tachiyomi.multisrc.", "keiyoushi.", "cleanmanga."};
+    private static final Map<String, Boolean> OWN_CLASSES = new ConcurrentHashMap<>();
+
+    private static boolean calledFromInside() {
+        StackTraceElement[] st = new Throwable().getStackTrace();
+        // [0] here, [1] Guard.getBaseUrl, [2] the extension's getBaseUrl, then whoever called it
+        if (st.length <= 3) return true; // no stack to judge by: keep the site working
+        for (int i = 3; i < st.length; i++) {
+            String c = st[i].getClassName();
+            if (startsWith(c, PASSING)) continue;
+            if (startsWith(c, INSIDE)) return true;
+            return isOwnClass(c);
+        }
+        return true;
+    }
+
+    private static boolean startsWith(String s, String[] prefixes) {
+        for (String p : prefixes) if (s.startsWith(p)) return true;
+        return false;
+    }
+
+    /** True for classes that come from this extension's own file (its obfuscated helpers). */
+    private static boolean isOwnClass(String name) {
+        Boolean known = OWN_CLASSES.get(name);
+        if (known != null) return known;
+        boolean own;
+        try {
+            ClassLoader mine = Guard.class.getClassLoader();
+            own = Class.forName(name, false, mine).getClassLoader() == mine;
+        } catch (Throwable e) {
+            own = false;
+        }
+        OWN_CLASSES.put(name, own);
+        return own;
     }
 
     // ---- lists ----
@@ -271,19 +339,29 @@ public final class Guard {
         }
         if (todo.isEmpty()) return mangas;
 
+        // The checks work on copies: the originals get masked when the budget runs out, while
+        // checks may still be waiting to start.
+        final List<SManga> copies = new ArrayList<>();
+        for (SManga m : todo) copies.add(snapshot(m));
         final int n = todo.size();
         final AtomicReferenceArray<Object> outcome = new AtomicReferenceArray<>(n);
         final AtomicInteger next = new AtomicInteger();
         final AtomicInteger left = new AtomicInteger(n);
         final CountDownLatch finished = new CountDownLatch(n);
         final Set<String> clean = Collections.synchronizedSet(new HashSet<String>());
+        if (host.guard$strict()) {
+            // ask AniList about the whole list in a few requests while the details load
+            List<String> titles = new ArrayList<>();
+            for (SManga m : copies) titles.add(Safe.title(m));
+            Verify.prefetch(host, titles);
+        }
         Runnable worker = new Runnable() {
             @Override
             public void run() {
                 for (int i = next.getAndIncrement(); i < n; i = next.getAndIncrement()) {
                     Object r = FAILED;
                     try {
-                        Boolean b = check(host, todo.get(i), clean);
+                        Boolean b = check(host, copies.get(i), clean);
                         if (b != null) r = b;
                     } catch (Throwable ignored) {
                         // counts as failed
@@ -308,11 +386,31 @@ public final class Guard {
             SManga m = todo.get(i);
             if (Boolean.FALSE.equals(r)) continue;
             if (r == FAILED && !mixed) continue; // a site marked safe whose page would not load: show as before
-            gateCover(m);
+            gateCover(copies.get(i));
             if (Boolean.TRUE.equals(r)) blackout(m);
             else veil(m);
         }
         return mangas;
+    }
+
+    /** A detached copy of a manga, for checks that must not see (or cause) masking of the one the app holds. */
+    static SManga snapshot(SManga m) {
+        SManga c;
+        try {
+            c = SManga.Companion.create();
+        } catch (Throwable e) {
+            return m;
+        }
+        try { c.setUrl(m.getUrl()); } catch (Throwable ignored) { }
+        try { c.setTitle(m.getTitle()); } catch (Throwable ignored) { }
+        try { c.setThumbnail_url(m.getThumbnail_url()); } catch (Throwable ignored) { }
+        try { c.setGenre(m.getGenre()); } catch (Throwable ignored) { }
+        try { c.setDescription(m.getDescription()); } catch (Throwable ignored) { }
+        try { c.setAuthor(m.getAuthor()); } catch (Throwable ignored) { }
+        try { c.setArtist(m.getArtist()); } catch (Throwable ignored) { }
+        try { c.setStatus(m.getStatus()); } catch (Throwable ignored) { }
+        try { c.setInitialized(m.getInitialized()); } catch (Throwable ignored) { }
+        return c;
     }
 
     /** Judges a listed manga from the tags the list itself carries. Returns the verdict, null when unknown. */
@@ -371,11 +469,21 @@ public final class Guard {
             return VERDICTS.get(url);
         }
         try {
+            if (host.guard$strict()) {
+                // adult-labelled site: AniList first, the site's own page only for titles it confirms
+                Boolean ok = Verify.clean(host, Safe.title(m));
+                if (ok == null) return null;
+                if (!ok) {
+                    VERDICTS.put(url, Boolean.TRUE);
+                    remember(Store.MANGA, Collections.singleton(url));
+                    return Boolean.TRUE;
+                }
+            }
             SManga details = host instanceof GuardHost16
                     ? Guard16.details((GuardHost16) host, m)
                     : Guard14.details((GuardHost14) host, m);
-            boolean blocked = judge(url, details, clean == null);
-            if (!blocked && clean != null) clean.add(url);
+            Boolean blocked = judge(host, url, details, clean == null);
+            if (Boolean.FALSE.equals(blocked) && clean != null) clean.add(url);
             return blocked;
         } catch (Throwable e) {
             return null;

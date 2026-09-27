@@ -41,7 +41,8 @@ import java.util.zip.ZipOutputStream;
  * class hands the call to the guard, which calls NAME$gorig and filters the answer. Calls the
  * extension makes to itself go straight to NAME$gorig, so only the app goes through the guard.
  *
- * Usage: java -cp asm.jar:asm-tree.jar Patcher.java IN.jar OUT.jar GUARD_CLASSES_DIR LIB(1.4|1.6) MIXED(true|false) CODE_BUMP
+ * Usage: java -cp asm.jar:asm-tree.jar Patcher.java IN.jar OUT.jar GUARD_CLASSES_DIR LIB(1.4|1.6) LEVEL(false|true|strict) CODE_BUMP
+ * LEVEL is how Keiyoushi labels the site: false = safe, true = mixed, strict = adult.
  * Prints one line: "ok <details>" or exits with code 2 and "unguardable <reason>".
  */
 public class Patcher {
@@ -70,6 +71,8 @@ public class Patcher {
     static List<Api> apis(String lib) {
         List<Api> list = new ArrayList<>();
         list.add(new Api("getClient", "()Lokhttp3/OkHttpClient;", G + "GuardNet", G + "GuardHost", true, false));
+        // abstract in HttpSource, so every web extension has its own
+        list.add(new Api("getBaseUrl", "()Ljava/lang/String;", G + "Guard", G + "GuardHost", false, false));
         // HttpSource has these in 1.4; in 1.6 they are abstract, so the extension always has its own.
         boolean old = lib.equals("1.4");
         list.add(new Api("getMangaUrl", "(" + MANGA + ")Ljava/lang/String;", G + "Guard", G + "GuardHost", old, false));
@@ -123,7 +126,7 @@ public class Patcher {
         List<java.security.cert.X509Certificate> certs = new ArrayList<>();
         for (java.security.cert.Certificate c : ks.getCertificateChain(args[5])) certs.add((java.security.cert.X509Certificate) c);
 
-        // Each job: IN.jar OUT.jar LIB MIXED [IN.apk OUT.apk]
+        // Each job: IN.jar OUT.jar LIB LEVEL [IN.apk OUT.apk]
         for (String job : jobs) {
             if (job.isBlank()) continue;
             String[] f = job.split("\t");
@@ -131,7 +134,7 @@ public class Patcher {
             Path unsigned = out.resolveSibling(out.getFileName() + ".unsigned");
             Path work = out.resolveSibling(out.getFileName() + ".work");
             try {
-                String report = patch(Path.of(f[0]), unsigned, guardDir, f[2], Boolean.parseBoolean(f[3]), bump);
+                String report = patch(Path.of(f[0]), unsigned, guardDir, f[2], f[3], bump);
                 try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(unsigned.toFile());
                      java.io.OutputStream os = Files.newOutputStream(out)) {
                     signer.sign(zip, os);
@@ -159,15 +162,14 @@ public class Patcher {
             return;
         }
         if (args.length != 6) {
-            System.err.println("usage: Patcher IN.jar OUT.jar GUARD_CLASSES_DIR LIB MIXED CODE_BUMP");
+            System.err.println("usage: Patcher IN.jar OUT.jar GUARD_CLASSES_DIR LIB LEVEL CODE_BUMP");
             System.exit(1);
         }
         Path in = Path.of(args[0]), out = Path.of(args[1]), guardDir = Path.of(args[2]);
         String lib = args[3];
-        boolean mixed = Boolean.parseBoolean(args[4]);
         int bump = Integer.parseInt(args[5]);
         try {
-            String report = patch(in, out, guardDir, lib, mixed, bump);
+            String report = patch(in, out, guardDir, lib, args[4], bump);
             System.out.println("ok " + report);
         } catch (Unguardable e) {
             System.out.println("unguardable " + e.getMessage());
@@ -181,7 +183,10 @@ public class Patcher {
         }
     }
 
-    static String patch(Path in, Path out, Path guardDir, String lib, boolean mixed, int bump) throws Exception {
+    static String patch(Path in, Path out, Path guardDir, String lib, String level, int bump) throws Exception {
+        if (!Set.of("false", "true", "strict").contains(level)) throw new IllegalArgumentException("unknown level " + level);
+        boolean strict = level.equals("strict");
+        boolean mixed = strict || level.equals("true");
         Map<String, byte[]> entries = readZip(in);
         byte[] manifest = entries.get("AndroidManifest.xml");
         if (manifest == null) throw new Unguardable("no AndroidManifest.xml");
@@ -262,6 +267,7 @@ public class Patcher {
             }
             root.interfaces.add(hostIface);
             root.methods.add(constant("guard$mixed", mixed));
+            root.methods.add(constant("guard$strict", strict));
             root.methods.add(constant("guard$pkg", pkg));
             // Every interface method gets a body, so strict runtimes accept the class.
             for (Api api : apis) {

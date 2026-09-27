@@ -1,8 +1,10 @@
 """Build the clean extension list for Tachimanga (and Mihon).
 
-Every Keiyoushi extension labelled "safe" or "mixed" is kept, with the clean-manga guard patched in:
-manga tagged hentai, ecchi or anything else in block-tags.txt show up black and cannot be opened.
-Extensions labelled NSFW (adult sites) stay out, unless named in allow.txt.
+Every Keiyoushi extension is kept, with the clean-manga guard patched in: manga tagged hentai,
+ecchi or anything else in block-tags.txt show up black and cannot be opened.
+On sites Keiyoushi labels NSFW (adult) the guard is strict: a title only shows when AniList knows it
+and confirms it clean, and the site itself never opens in the app's browser.
+Extensions named in block.txt stay out.
 
 The patched jar and APK of each extension are signed with our key and uploaded as release files
 (tags files-0 .. files-7). index.pb points the app at them.
@@ -327,6 +329,7 @@ def main():
     ap.add_argument("--local-url", help="base url the local folder is served at")
     ap.add_argument("--only", help="comma separated package names, for testing")
     ap.add_argument("--out", help="folder for index.pb, repo.json and removed.txt (default: this repo)")
+    ap.add_argument("--force-strict", help="comma separated package names to build strict, for testing")
     args = ap.parse_args()
     if not os.environ.get("CLEAN_KEY_PASSWORD"):
         sys.exit("CLEAN_KEY_PASSWORD is not set")
@@ -341,8 +344,9 @@ def main():
     exts = extensions(upstream)
     if len(exts) < 500:
         sys.exit(f"only {len(exts)} extensions upstream, format probably changed")
-    allow, block = read_names("allow.txt"), read_names("block.txt")
+    block = read_names("block.txt")
     only = {p.strip() for p in args.only.split(",")} if args.only else None
+    force_strict = {p.strip() for p in args.force_strict.split(",")} if args.force_strict else set()
 
     out_dir = Path(args.out) if args.out else HERE
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -355,15 +359,12 @@ def main():
     wanted, removed = [], []
     for e in exts:
         ids = {e["name"].lower(), e["pkg"].lower()}
-        label = e.get("warning")
         if only is not None and e["pkg"] not in only:
             continue
         if ids & block:
             removed.append((e, "block.txt"))
-        elif label in (SAFE, MIXED) or ids & allow:
-            wanted.append(e)
         else:
-            removed.append((e, LABELS.get(label, "unlabelled")))
+            wanted.append(e)
 
     if args.local:
         local = Path(args.local)
@@ -418,8 +419,11 @@ def main():
         for e, (jar, apk) in todo:
             if e["pkg"] in failed:
                 continue
-            mixed = "false" if e.get("warning") == SAFE else "true"
-            jobs.append("\t".join([str(work / "up" / jar), str(work / "out" / jar), e["lib"], mixed,
+            # safe / mixed / adult (and anything unlabelled) -> the guard's level
+            level = {SAFE: "false", MIXED: "true"}.get(e.get("warning"), "strict")
+            if e["pkg"] in force_strict:
+                level = "strict"
+            jobs.append("\t".join([str(work / "up" / jar), str(work / "out" / jar), e["lib"], level,
                                    str(work / "up" / apk), str(work / "out" / apk)]))
         (work / "jobs.tsv").write_text("\n".join(jobs) + "\n", encoding="utf-8")
         r = subprocess.run([java_tool("java"), "-Xmx2g", "-cp", classpath, "Patcher", "--batch", str(work / "jobs.tsv"),
@@ -478,9 +482,6 @@ def main():
     # Refuse to publish anything odd; the last good index then stays online.
     if only is None and len(entries) < 300:
         sys.exit(f"only {len(entries)} extensions ready, not publishing")
-    for e in published:
-        if e.get("warning") == NSFW and not ({e["name"].lower(), e["pkg"].lower()} & allow):
-            sys.exit(f"adult extension slipped through: {e['name']}")
 
     index = build_index(upstream, entries, fp)
     check = extensions(index)

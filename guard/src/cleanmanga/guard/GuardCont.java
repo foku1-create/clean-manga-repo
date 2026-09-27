@@ -10,8 +10,9 @@ import kotlin.coroutines.intrinsics.IntrinsicsKt;
  * Stands between the app and a suspend function of the extension, and filters its result
  * whether it arrives straight away ({@link #done}) or later ({@link #resumeWith}).
  *
- * Lists are screened on the guard's own threads (checking tags takes a few seconds) and then
- * handed back to the app on the app's own dispatcher, so no app thread waits for the checks.
+ * Lists (and, on adult-labelled sites, details, which wait for AniList) are screened on the
+ * guard's own threads and then handed back to the app on the app's own dispatcher, so no app
+ * thread waits for the checks.
  */
 final class GuardCont implements Continuation<Object> {
     static final int PAGE = 1;
@@ -41,7 +42,7 @@ final class GuardCont implements Continuation<Object> {
             app.resumeWith(result);
             return;
         }
-        if (kind == UPDATE) {
+        if (kind == UPDATE && !host.guard$strict()) {
             app.resumeWith(filterOrFailure(result));
         } else {
             screenLater(result);
@@ -51,7 +52,7 @@ final class GuardCont implements Continuation<Object> {
     /** The extension answered without suspending. */
     Object done(Object result) {
         if (result == IntrinsicsKt.getCOROUTINE_SUSPENDED()) return result;
-        if (kind == UPDATE) return filter(result);
+        if (kind == UPDATE && !host.guard$strict()) return filter(result);
         screenLater(result);
         return IntrinsicsKt.getCOROUTINE_SUSPENDED();
     }
@@ -81,7 +82,7 @@ final class GuardCont implements Continuation<Object> {
             case RELATED:
                 return Guard.list(host, (java.util.List<?>) result);
             case UPDATE:
-                return Guard16.update(url, result);
+                return Guard16.update(host, url, result);
             default:
                 return result;
         }
