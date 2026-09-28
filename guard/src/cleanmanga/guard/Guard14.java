@@ -74,7 +74,7 @@ public final class Guard14 {
             @Override
             public Object call(Object d) {
                 Boolean v = d == null ? null : Guard.judgeDetails(h, url, (SManga) d);
-                boolean blocked = v == null ? h.guard$mixed() : v;
+                boolean blocked = v == null || v; // details would not load: no chapters
                 if (blocked) return Observable.just(Collections.emptyList());
                 return h.fetchChapterList$gorig(manga);
             }

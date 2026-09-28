@@ -22,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 import zlib
 from pathlib import Path
@@ -212,11 +213,19 @@ def java_tool(name):
     return name
 
 
-def gh(*args, check=True):
-    r = subprocess.run(["gh", *args], capture_output=True, text=True, encoding="utf-8")
-    if check and r.returncode != 0:
-        raise RuntimeError(f"gh {' '.join(args[:3])} failed: {r.stderr.strip()}")
-    return r.stdout
+def gh(*args, check=True, allow_not_found=False, retries=5):
+    """Run gh, retrying transient GitHub/network failures."""
+    for attempt in range(retries):
+        r = subprocess.run(["gh", *args], capture_output=True, text=True, encoding="utf-8")
+        if r.returncode == 0:
+            return r.stdout
+        if allow_not_found and "HTTP 404" in r.stderr:
+            return r.stdout
+        if not check:
+            return r.stdout
+        if attempt < retries - 1:
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"gh {' '.join(args[:3])} failed after {retries} attempts: {r.stderr.strip()}")
 
 
 # ---- guard version ----
@@ -314,8 +323,40 @@ def list_release_files():
 
 
 def upload(tag, paths):
+    def batch(items):
+        try:
+            # Do not blindly retry a multi-file upload: the first attempt may have
+            # uploaded only part of it, making every retry stop at an existing name.
+            gh("release", "upload", tag, "--repo", REPO, *[str(p) for p in items], retries=1)
+        except RuntimeError as ex:
+            message = str(ex)
+            if "rate limit exceeded" in message.lower():
+                raise
+            if len(items) == 1:
+                if "already exists" in message.lower():
+                    return
+                # A single file is safe to retry; an eventual duplicate means the
+                # previous attempt actually reached GitHub and is also success.
+                for attempt in range(4):
+                    time.sleep(2 ** attempt)
+                    try:
+                        gh("release", "upload", tag, "--repo", REPO, str(items[0]), retries=1)
+                        return
+                    except RuntimeError as retry_ex:
+                        text = str(retry_ex).lower()
+                        if "already exists" in text:
+                            return
+                        if "rate limit exceeded" in text:
+                            raise
+                raise
+            middle = len(items) // 2
+            batch(items[:middle])
+            batch(items[middle:])
+
     for i in range(0, len(paths), 40):
-        gh("release", "upload", tag, "--repo", REPO, "--clobber", *[str(p) for p in paths[i:i + 40]])
+        # Avoid --clobber: it performs an extra API lookup/delete per file and can
+        # exhaust GitHub's hourly API allowance during a full repository rebuild.
+        batch(paths[i:i + 40])
 
 
 # ---- main ----
@@ -372,6 +413,26 @@ def main():
         present = {p.name: ("local", None) for p in local.iterdir()}
     else:
         present = list_release_files()
+        # A release accepts at most 1,000 assets. Before uploading a new guard version,
+        # remove files older than the currently published index. Keep partial files for
+        # this bump so an interrupted rebuild can resume without uploading them again.
+        old_keep = set()
+        for e in old.values():
+            for field in (1, 501):
+                old_keep.add(e["resources"].get(field, "").rsplit("/", 1)[-1])
+        current_marker = f".g{bump}."
+        stale_before_upload = [
+            (name, tag, aid)
+            for name, (tag, aid) in present.items()
+            if name not in old_keep and current_marker not in name
+        ]
+        for name, tag, aid in stale_before_upload:
+            # Treat an already-missing asset as successfully cleaned up. This can
+            # happen when a previous interrupted run deleted it after listing assets.
+            gh("api", "-X", "DELETE", f"repos/{REPO}/releases/assets/{aid}", allow_not_found=True)
+            del present[name]
+        if stale_before_upload:
+            log(f"deleted {len(stale_before_upload)} old files before upload")
 
     def names(e):
         res = e["resources"]
@@ -396,13 +457,23 @@ def main():
 
     unguardable = {}
     if todo:
-        work = BUILD / "work"
-        shutil.rmtree(work, ignore_errors=True)
-        (work / "up").mkdir(parents=True)
-        (work / "out").mkdir(parents=True)
+        # Resume the newest workspace when possible. Full rebuilds take long enough
+        # that a transient GitHub failure must not force every APK to be patched again.
+        cached_work = sorted(
+            (p for p in BUILD.glob("work-*") if (p / "up").is_dir() and (p / "out").is_dir()),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        work = cached_work[0] if cached_work else BUILD / f"work-{os.getpid()}"
+        (work / "up").mkdir(parents=True, exist_ok=True)
+        (work / "out").mkdir(parents=True, exist_ok=True)
+        if cached_work:
+            log(f"resuming cached workspace {work.name}")
 
         def download(item):
             e, (jar, apk) = item
+            if (work / "up" / jar).exists() and (work / "up" / apk).exists():
+                return
             fetch(e["resources"][501], work / "up" / jar)
             fetch(e["resources"][1], work / "up" / apk)
 
@@ -419,6 +490,8 @@ def main():
         for e, (jar, apk) in todo:
             if e["pkg"] in failed:
                 continue
+            if (work / "out" / jar).exists() and (work / "out" / apk).exists():
+                continue
             # safe / mixed / adult (and anything unlabelled) -> the guard's level
             level = {SAFE: "false", MIXED: "true"}.get(e.get("warning"), "strict")
             if e["pkg"] in force_strict:
@@ -426,15 +499,20 @@ def main():
             jobs.append("\t".join([str(work / "up" / jar), str(work / "out" / jar), e["lib"], level,
                                    str(work / "up" / apk), str(work / "out" / apk)]))
         (work / "jobs.tsv").write_text("\n".join(jobs) + "\n", encoding="utf-8")
-        r = subprocess.run([java_tool("java"), "-Xmx2g", "-cp", classpath, "Patcher", "--batch", str(work / "jobs.tsv"),
-                            str(BUILD / "guard-classes"), str(bump), args.keystore, args.alias],
-                           capture_output=True, text=True, encoding="utf-8")
-        if r.returncode != 0:
-            sys.exit(f"patcher crashed:\n{r.stderr}")
-        results = {}
-        for line in r.stdout.splitlines():
-            status, out, detail = (line.split("\t") + ["", ""])[:3]
-            results[Path(out).name] = (status, detail)
+        results = {
+            jar: ("ok", "cached")
+            for e, (jar, apk) in todo
+            if (work / "out" / jar).exists() and (work / "out" / apk).exists()
+        }
+        if jobs:
+            r = subprocess.run([java_tool("java"), "-Xmx2g", "-cp", classpath, "Patcher", "--batch", str(work / "jobs.tsv"),
+                                str(BUILD / "guard-classes"), str(bump), args.keystore, args.alias],
+                               capture_output=True, text=True, encoding="utf-8")
+            if r.returncode != 0:
+                sys.exit(f"patcher crashed:\n{r.stderr}")
+            for line in r.stdout.splitlines():
+                status, out, detail = (line.split("\t") + ["", ""])[:3]
+                results[Path(out).name] = (status, detail)
 
         built = {}
         for e, (jar, apk) in todo:

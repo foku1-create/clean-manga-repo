@@ -41,7 +41,7 @@ public final class Guard {
     /** Tag checks one list runs at the same time. */
     static final int LIST_PARALLEL = 6;
     /** Clean verdicts are only valid for the tag list and checking rules they were made with. */
-    static final String CLEAN = "clean_manga_" + Integer.toHexString(Arrays.hashCode(Tags.LINES) * 31 + 3);
+    static final String CLEAN = "clean_manga_" + Integer.toHexString(Arrays.hashCode(Tags.LINES) * 31 + 4);
     /** Where the app is sent instead of an adult site or a blocked title. */
     static final String BLOCKED_PAGE = "https://github.com/foku1-create/clean-manga-repo";
     private static final Object FAILED = new Object();
@@ -197,7 +197,7 @@ public final class Guard {
 
     /** saveClean: false when the caller saves clean verdicts itself, in one go. */
     private static Boolean judge(GuardHost host, String url, SManga details, boolean saveClean) {
-        boolean blocked = details != null && tagsBlocked(Safe.genre(details));
+        boolean blocked = details != null && (tagsBlocked(Safe.genre(details)) || tagsBlocked(Safe.title(details)));
         if (!blocked && host.guard$strict()) {
             Boolean ok = details == null ? Boolean.FALSE : Verify.clean(host, Safe.title(details));
             if (ok == null) {
@@ -380,12 +380,12 @@ public final class Guard {
             Thread.currentThread().interrupt();
         }
 
-        boolean mixed = host.guard$mixed();
+        // A check that failed counts like one still running, on every site: Keiyoushi's "safe"
+        // label is not always right (MangaKa is "safe" and has hentai).
         for (int i = 0; i < n; i++) {
             Object r = outcome.get(i);
             SManga m = todo.get(i);
             if (Boolean.FALSE.equals(r)) continue;
-            if (r == FAILED && !mixed) continue; // a site marked safe whose page would not load: show as before
             gateCover(copies.get(i));
             if (Boolean.TRUE.equals(r)) blackout(m);
             else veil(m);
@@ -418,7 +418,8 @@ public final class Guard {
         String url = Safe.url(m);
         if (url == null) return Boolean.FALSE; // nothing to check against; opening it is still guarded
         Boolean v = verdict(url);
-        if (v == null && tagsBlocked(Safe.genre(m))) {
+        // the tags a list carries, or a blocked word in the title itself ("... Hentai ...")
+        if (!Boolean.TRUE.equals(v) && (tagsBlocked(Safe.genre(m)) || tagsBlocked(Safe.title(m)))) {
             v = Boolean.TRUE;
             VERDICTS.put(url, Boolean.TRUE);
             remember(Store.MANGA, Collections.singleton(url));

@@ -74,7 +74,7 @@ public final class GuardNet {
             eu.kanade.tachiyomi.source.model.SManga owner = Guard.coverOwner(url);
             if (owner == null) return chain.proceed(request);
             Boolean blocked = Guard.check(host, owner);
-            if (blocked == null) blocked = host.guard$mixed();
+            if (blocked == null) blocked = Boolean.TRUE; // the check failed: stay black
             return blocked ? black(request) : chain.proceed(request);
         }
     }
