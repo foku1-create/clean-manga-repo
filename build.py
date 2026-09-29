@@ -204,6 +204,17 @@ def read_names(filename):
     return {line.strip().lower() for line in lines if line.strip() and not line.startswith("#")}
 
 
+def exclusion_reason(extension, block):
+    """Return why an extension must stay out, or None when it is safe to publish."""
+    ids = {extension["name"].lower(), extension["pkg"].lower()}
+    if ids & block:
+        return "block.txt"
+    warning = extension.get("warning")
+    if warning != SAFE:
+        return f"not marked safe ({LABELS.get(warning, 'unlabelled')})"
+    return None
+
+
 def java_tool(name):
     home = os.environ.get("JAVA_HOME")
     if home:
@@ -399,11 +410,11 @@ def main():
 
     wanted, removed = [], []
     for e in exts:
-        ids = {e["name"].lower(), e["pkg"].lower()}
         if only is not None and e["pkg"] not in only:
             continue
-        if ids & block:
-            removed.append((e, "block.txt"))
+        why = exclusion_reason(e, block)
+        if why:
+            removed.append((e, why))
         else:
             wanted.append(e)
 
