@@ -1,3 +1,5 @@
 # Extensions to leave out completely, whatever Keiyoushi labels them.
 # One name or package per line, e.g.  ManhuaHot
 MangaK
+MangaKa
+Scan Reader

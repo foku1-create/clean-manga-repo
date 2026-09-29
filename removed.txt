@@ -410,6 +410,7 @@ MangaHub.fr (mangahubfr): not marked safe (mixed)
 MangaInUa (mangainua): not marked safe (mixed)
 MangaIsekaiThai (mangaisekaithai): not marked safe (mixed)
 MangaK (mangabuddy): block.txt
+MangaKa (mangaka): block.txt
 MangaKatana (mangakatana): not marked safe (mixed)
 MangaKimi (mangakimi): not marked safe (mixed)
 MangaKuro (mangakuro): not marked safe (mixed)
@@ -638,6 +639,7 @@ SACACHISPA (sacachispa): not marked safe (mixed)
 Sasangeyou (sasangeyou): not marked safe (adult)
 SayHentai (sayhentai): not marked safe (adult)
 SayManhwa (saymanhwa): not marked safe (mixed)
+Scan Reader (scanreader): block.txt
 Scan-Manga (scanmanga): not marked safe (adult)
 ScanR (scanr): not marked safe (mixed)
 ScansFR (scansfr): not marked safe (mixed)
