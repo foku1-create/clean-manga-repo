@@ -12,9 +12,10 @@ class RepositoryPolicyTests(unittest.TestCase):
         extension = {"name": "Mixed Source", "pkg": "example.mixed", "warning": build.MIXED}
         self.assertEqual(build.exclusion_reason(extension, set()), "not marked safe (mixed)")
 
-    def test_adult_extension_is_removed(self):
+    def test_adult_extension_is_kept_for_strict_guard(self):
         extension = {"name": "Adult Source", "pkg": "example.adult", "warning": build.NSFW}
-        self.assertEqual(build.exclusion_reason(extension, set()), "not marked safe (adult)")
+        self.assertIsNone(build.exclusion_reason(extension, set()))
+        self.assertEqual(build.guard_level(extension), "strict")
 
     def test_unlabelled_extension_is_removed(self):
         extension = {"name": "Unknown Source", "pkg": "example.unknown"}

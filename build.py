@@ -1,10 +1,9 @@
 """Build the clean extension list for Tachimanga (and Mihon).
 
-Every Keiyoushi extension is kept, with the clean-manga guard patched in: manga tagged hentai,
-ecchi or anything else in block-tags.txt show up black and cannot be opened.
-On sites Keiyoushi labels NSFW (adult) the guard is strict: a title only shows when AniList knows it
-and confirms it clean, and the site itself never opens in the app's browser.
-Extensions named in block.txt stay out.
+Keiyoushi extensions labelled safe or NSFW (adult) are kept, with the clean-manga guard patched in.
+Mixed and unlabelled sources stay out. On NSFW sites the guard is strict: a title only shows when
+AniList and MangaUpdates both know it and confirm it clean, and the site itself never opens in the
+app's browser. Extensions named in block.txt stay out.
 
 The patched jar and APK of each extension are signed with our key and uploaded as release files
 (tags files-0 .. files-7). index.pb points the app at them.
@@ -210,9 +209,14 @@ def exclusion_reason(extension, block):
     if ids & block:
         return "block.txt"
     warning = extension.get("warning")
-    if warning != SAFE:
+    if warning not in {SAFE, NSFW}:
         return f"not marked safe ({LABELS.get(warning, 'unlabelled')})"
     return None
+
+
+def guard_level(extension):
+    """Return the patcher's guard level for a publishable extension."""
+    return {SAFE: "false", MIXED: "true"}.get(extension.get("warning"), "strict")
 
 
 def java_tool(name):
@@ -504,7 +508,7 @@ def main():
             if (work / "out" / jar).exists() and (work / "out" / apk).exists():
                 continue
             # safe / mixed / adult (and anything unlabelled) -> the guard's level
-            level = {SAFE: "false", MIXED: "true"}.get(e.get("warning"), "strict")
+            level = guard_level(e)
             if e["pkg"] in force_strict:
                 level = "strict"
             jobs.append("\t".join([str(work / "up" / jar), str(work / "out" / jar), e["lib"], level,
