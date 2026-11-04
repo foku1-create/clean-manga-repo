@@ -1,0 +1,8 @@
+# Sites Keiyoushi labels "mixed" (normal and 18+ titles on the same site) to publish anyway.
+# They get the normal tag guard: every title tagged hentai, ecchi or anything else in
+# block-tags.txt is blocked one by one. One name or package per line, e.g.  AllManga
+# block.txt still wins over this file.
+
+# 2026-11-04, Isma's choice: AllManga (mkissa.to). Its website is also unblocked in the iPhone DNS filter,
+# because the extension needs it to load chapter pages.
+AllManga

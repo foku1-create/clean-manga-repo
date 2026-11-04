@@ -6,7 +6,7 @@ Sources Keiyoushi labels **mixed** or does not label are kept out because the gu
 
 - Sites Keiyoushi labels **safe**: a title is blocked when its tags say so.
 - Sites labelled **NSFW** (mostly adult sites) appear in the adult section but get the **strict** guard, see below.
-- Sites labelled **mixed** and unlabelled sites are not published.
+- Sites labelled **mixed** and unlabelled sites are not published, except mixed sites named in [`allow.txt`](allow.txt) (now: AllManga), which get the tag guard.
 - The list refreshes itself every hour, so updates and new extensions keep arriving.
 
 ## What the guard does
@@ -59,5 +59,6 @@ https://github.com/foku1-create/clean-manga-repo/raw/main/index.pb
 - `build.py` builds everything: picks the extensions, patches the guard in, signs, uploads, writes `index.pb`.
 - `guard/` is the guard itself; `tools/Patcher.java` puts it in front of the extension; `tools/ApkPatcher.java` makes the Android version.
 - `block.txt` removes a chosen extension completely.
+- `allow.txt` publishes a chosen **mixed** extension anyway, with the tag guard (`block.txt` still wins).
 - `removed.txt` lists everything that was left out, and why.
 - Patched files are signed with this repo's own key and stored as release files (`files-0` … `files-7`).

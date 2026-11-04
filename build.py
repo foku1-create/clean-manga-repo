@@ -203,12 +203,17 @@ def read_names(filename):
     return {line.strip().lower() for line in lines if line.strip() and not line.startswith("#")}
 
 
-def exclusion_reason(extension, block):
-    """Return why an extension must stay out, or None when it is safe to publish."""
+def exclusion_reason(extension, block, allow=frozenset()):
+    """Return why an extension must stay out, or None when it is safe to publish.
+
+    allow: names or packages from allow.txt; a mixed extension named there is published with the tag guard.
+    """
     ids = {extension["name"].lower(), extension["pkg"].lower()}
     if ids & block:
         return "block.txt"
     warning = extension.get("warning")
+    if warning == MIXED and ids & allow:
+        return None
     if warning not in {SAFE, NSFW}:
         return f"not marked safe ({LABELS.get(warning, 'unlabelled')})"
     return None
@@ -401,7 +406,8 @@ def main():
     if len(exts) < 500:
         sys.exit(f"only {len(exts)} extensions upstream, format probably changed")
     block = read_names("block.txt")
-    only = {p.strip() for p in args.only.split(",")} if args.only else None
+    allow = read_names("allow.txt")
+    only ={p.strip() for p in args.only.split(",")} if args.only else None
     force_strict = {p.strip() for p in args.force_strict.split(",")} if args.force_strict else set()
 
     out_dir = Path(args.out) if args.out else HERE
@@ -416,7 +422,7 @@ def main():
     for e in exts:
         if only is not None and e["pkg"] not in only:
             continue
-        why = exclusion_reason(e, block)
+        why = exclusion_reason(e, block, allow)
         if why:
             removed.append((e, why))
         else:
