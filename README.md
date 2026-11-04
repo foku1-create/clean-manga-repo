@@ -20,8 +20,13 @@ Sources Keiyoushi labels **mixed** or does not label are kept out because the gu
   Changing `block-tags.txt` makes the guard check the clean ones again.
 - Opening a blocked title shows **Blocked** and no chapters. Chapters you had before cannot be opened.
 
-The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai, ecchi, smut, adult, mature, erotica, yaoi and yuri including "Boys' Love" and "Girls' Love", the same words in other languages, and MangaDex's "suggestive" rating).
+The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai, ecchi, smut, erotica, 18+, nudity, yaoi and yuri including "Boys' Love" and "Girls' Love", the same words in other languages, and MangaDex's "suggestive" rating).
 Change that file and every extension is rebuilt within the hour.
+
+**Adult** and **Mature** (and the same words in other languages, marked `~` in the file) no longer block on normal sites,
+because many ordinary series carry them only for violence. They still block on adult-labelled sites and in the
+AniList/MangaUpdates check, where they mark the 19+ editions. A title blocked earlier only for "Adult" or "Mature"
+is checked again; its chapters open once the check finds it clean.
 
 ### Strict guard on adult-labelled sites
 

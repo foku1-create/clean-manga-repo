@@ -2,6 +2,7 @@
 #   word     blocks any tag containing this whole word ("adult" blocks "Adult Content")
 #   word*    also blocks longer words starting with it ("eroti*" blocks "Erotica", "Erotique")
 #   !tag     never blocks a tag that is exactly this ("!young adult")
+#   ~word    blocks only on adult-labelled sites and in the AniList/MangaUpdates check, not on normal sites
 # Chinese, Japanese, Korean and Arabic words match anywhere inside a tag.
 # After changing this file, the extensions rebuild by themselves within the hour.
 
@@ -20,15 +21,6 @@ nsfw
 r18
 r-18
 ab 18
-adult
-adults
-adulto
-adultos
-adulte
-adultes
-adulti
-mature
-maduro
 sexual*
 sex
 sexy
@@ -59,13 +51,29 @@ shoujo-ai
 shojo-ai
 bl
 gl
-dewasa
-nguoi lon
-yetiskin
 !young adult
 # AniList (asked about titles on adult-labelled sites) uses these for normal series with grown-up characters
 !primarily adult cast
 !adult cast
+
+# "Adult" and "Mature" (2026-11-04): on normal sites many series carry them only for violence,
+# so there they no longer block; hentai, ecchi, smut and everything above still does. On
+# adult-labelled sites and in MangaUpdates they mark the 19+ editions, so there they still block.
+~adult
+~adults
+~adulto
+~adultos
+~adulte
+~adultes
+~adulti
+~mature
+~maduro
+~dewasa
+~nguoi lon
+~yetiskin
+~для взрослых
+~للكبار
+~ناضج
 
 # Russian
 хентай
@@ -73,7 +81,6 @@ yetiskin
 этти
 эччи
 экчи
-для взрослых
 порно
 яой
 юри
@@ -82,8 +89,6 @@ yetiskin
 هنتاي
 ايتشي
 إيتشي
-للكبار
-ناضج
 
 # Chinese, Japanese, Korean
 色情

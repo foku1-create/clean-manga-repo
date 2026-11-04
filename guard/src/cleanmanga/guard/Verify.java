@@ -166,7 +166,7 @@ final class Verify {
                 if (Boolean.TRUE.equals(((Map<?, ?>) t).get("isAdult"))) return false;
                 tags.append(((Map<?, ?>) t).get("name")).append(',');
             }
-            if (Guard.tagsBlocked(tags.toString())) return false;
+            if (Guard.tagsBlocked(tags.toString(), true)) return false;
         }
         return matched;
     }
@@ -227,7 +227,7 @@ final class Verify {
             for (Object g : list(((Map<?, ?>) record).get("genres"))) {
                 if (g instanceof Map) genres.append(((Map<?, ?>) g).get("genre")).append(',');
             }
-            if (Guard.tagsBlocked(genres.toString())) return false;
+            if (Guard.tagsBlocked(genres.toString(), true)) return false;
         }
         return matched;
     }

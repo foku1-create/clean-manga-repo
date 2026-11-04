@@ -70,6 +70,11 @@ final class Store {
         if (s.remove(value)) write(key, s);
     }
 
+    synchronized void removeAll(String key, Set<String> values) {
+        Set<String> s = read(key);
+        if (s.removeAll(values)) write(key, s);
+    }
+
     private void write(String key, Set<String> s) {
         try {
             Object editor = edit.invoke(prefs);

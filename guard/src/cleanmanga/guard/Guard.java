@@ -49,6 +49,10 @@ public final class Guard {
     private static final List<String> WHOLE = new ArrayList<>();
     private static final List<String> PREFIX = new ArrayList<>();
     private static final List<String> ANYWHERE = new ArrayList<>();
+    /** Words marked ~ in block-tags.txt: they only block on adult-labelled sites and in the AniList/MangaUpdates check. */
+    private static final List<String> STRICT_WHOLE = new ArrayList<>();
+    private static final List<String> STRICT_PREFIX = new ArrayList<>();
+    private static final List<String> STRICT_ANYWHERE = new ArrayList<>();
     private static final Set<String> ALLOW = new HashSet<>();
 
     static {
@@ -57,16 +61,29 @@ public final class Guard {
             if (word.isEmpty()) continue;
             if (word.startsWith("!")) {
                 ALLOW.add(word.substring(1).trim());
-            } else if (!isSpaced(word)) {
-                ANYWHERE.add(word.endsWith("*") ? word.substring(0, word.length() - 1) : word);
+                continue;
+            }
+            boolean strictOnly = word.startsWith("~");
+            if (strictOnly) word = word.substring(1).trim();
+            if (word.isEmpty()) continue;
+            if (!isSpaced(word)) {
+                (strictOnly ? STRICT_ANYWHERE : ANYWHERE).add(word.endsWith("*") ? word.substring(0, word.length() - 1) : word);
             } else if (word.endsWith("*")) {
-                PREFIX.add(word.substring(0, word.length() - 1));
+                (strictOnly ? STRICT_PREFIX : PREFIX).add(word.substring(0, word.length() - 1));
             } else {
-                WHOLE.add(word);
+                (strictOnly ? STRICT_WHOLE : WHOLE).add(word);
             }
         }
     }
 
+    /**
+     * Where blocked verdicts are saved. Adult-labelled sites keep the old key: their rules did not
+     * change. Normal sites use one tied to the tag list, so a title blocked under an older, stricter
+     * list (only "Adult" or "Mature") is checked again. Blocked chapters are kept until their manga
+     * is found clean, so nothing opens before it has been checked.
+     */
+    private static volatile String blockedKey = Store.MANGA;
+    static final String BLOCKED_NORMAL = Store.MANGA + "_" + Integer.toHexString(Arrays.hashCode(Tags.LINES) * 31 + 4);
     /** url -> true when blocked, false when checked and clean. */
     private static final Map<String, Boolean> VERDICTS = lru(20_000);
     /** real cover url -> the manga it belongs to, for covers that must wait for a check or stay black. */
@@ -103,9 +120,10 @@ public final class Guard {
             } catch (Throwable e) {
                 s = null;
             }
+            blockedKey = h.guard$strict() ? Store.MANGA : BLOCKED_NORMAL;
             if (s == null) return;
             for (String url : s.read(CLEAN)) VERDICTS.put(url, Boolean.FALSE);
-            for (String url : s.read(Store.MANGA)) VERDICTS.put(url, Boolean.TRUE);
+            for (String url : s.read(blockedKey)) VERDICTS.put(url, Boolean.TRUE);
             for (String url : s.read(Store.CHAPTERS)) BLOCKED_CHAPTERS.put(url, Boolean.TRUE);
             store = s;
         }
@@ -118,16 +136,31 @@ public final class Guard {
 
     // ---- tags ----
 
+    /** Tags that block on every site. */
     public static boolean tagsBlocked(String genre) {
+        return tagsBlocked(genre, false);
+    }
+
+    /**
+     * strict: also the words marked ~ in block-tags.txt ("Adult", "Mature"). On a normal site those
+     * mostly mean violence; on an adult-labelled site and in MangaUpdates they mark the 19+ editions.
+     */
+    public static boolean tagsBlocked(String genre, boolean strict) {
         if (genre == null) return false;
         String all = normalize(genre);
         for (String tag : all.split("[,;|\\n]")) {
             tag = tag.trim();
             if (tag.isEmpty() || ALLOW.contains(tag)) continue;
-            for (String w : ANYWHERE) if (tag.contains(w)) return true;
-            for (String w : WHOLE) if (wordAt(tag, w, false)) return true;
-            for (String w : PREFIX) if (wordAt(tag, w, true)) return true;
+            if (matches(tag, ANYWHERE, WHOLE, PREFIX)) return true;
+            if (strict && matches(tag, STRICT_ANYWHERE, STRICT_WHOLE, STRICT_PREFIX)) return true;
         }
+        return false;
+    }
+
+    private static boolean matches(String tag, List<String> anywhere, List<String> whole, List<String> prefix) {
+        for (String w : anywhere) if (tag.contains(w)) return true;
+        for (String w : whole) if (wordAt(tag, w, false)) return true;
+        for (String w : prefix) if (wordAt(tag, w, true)) return true;
         return false;
     }
 
@@ -186,6 +219,21 @@ public final class Guard {
         remember(Store.CHAPTERS, urls);
     }
 
+    /** The chapters of a manga just found clean open again (it may have been blocked under an older tag list). */
+    static void unblockChapters(Collection<?> chapters) {
+        if (chapters == null || chapters.isEmpty()) return;
+        Set<String> urls = new HashSet<>();
+        for (Object c : chapters) {
+            String url = Safe.chapterUrl(c);
+            if (url != null) {
+                BLOCKED_CHAPTERS.remove(url);
+                urls.add(url);
+            }
+        }
+        Store s = store;
+        if (s != null && !urls.isEmpty()) s.removeAll(Store.CHAPTERS, urls);
+    }
+
     /**
      * Judges a manga whose details (and so all tags) are known. Returns true when blocked, false
      * when clean, null when an adult-labelled site's title could not be checked with AniList
@@ -197,7 +245,8 @@ public final class Guard {
 
     /** saveClean: false when the caller saves clean verdicts itself, in one go. */
     private static Boolean judge(GuardHost host, String url, SManga details, boolean saveClean) {
-        boolean blocked = details != null && (tagsBlocked(Safe.genre(details)) || tagsBlocked(Safe.title(details)));
+        boolean strict = host.guard$strict();
+        boolean blocked = details != null && (tagsBlocked(Safe.genre(details), strict) || tagsBlocked(Safe.title(details), strict));
         if (!blocked && host.guard$strict()) {
             Boolean ok = details == null ? Boolean.FALSE : Verify.clean(host, Safe.title(details));
             if (ok == null) {
@@ -212,10 +261,10 @@ public final class Guard {
             Boolean before = VERDICTS.put(url, blocked);
             Store s = store;
             if (blocked && !Boolean.TRUE.equals(before)) {
-                remember(Store.MANGA, Collections.singleton(url));
+                remember(blockedKey, Collections.singleton(url));
                 if (s != null) s.remove(CLEAN, url);
             }
-            if (!blocked && Boolean.TRUE.equals(before) && s != null) s.remove(Store.MANGA, url);
+            if (!blocked && Boolean.TRUE.equals(before) && s != null) s.remove(blockedKey, url);
             if (!blocked && saveClean && !Boolean.FALSE.equals(before)) remember(CLEAN, Collections.singleton(url));
         }
         if (blocked) {
@@ -335,7 +384,7 @@ public final class Guard {
         if (mangas == null) return null;
         final List<SManga> todo = new ArrayList<>();
         for (Object o : mangas) {
-            if (o instanceof SManga && listed((SManga) o) == null) todo.add((SManga) o);
+            if (o instanceof SManga && listed(host, (SManga) o) == null) todo.add((SManga) o);
         }
         if (todo.isEmpty()) return mangas;
 
@@ -414,15 +463,16 @@ public final class Guard {
     }
 
     /** Judges a listed manga from the tags the list itself carries. Returns the verdict, null when unknown. */
-    private static Boolean listed(SManga m) {
+    private static Boolean listed(GuardHost host, SManga m) {
         String url = Safe.url(m);
         if (url == null) return Boolean.FALSE; // nothing to check against; opening it is still guarded
         Boolean v = verdict(url);
+        boolean strict = host.guard$strict();
         // the tags a list carries, or a blocked word in the title itself ("... Hentai ...")
-        if (!Boolean.TRUE.equals(v) && (tagsBlocked(Safe.genre(m)) || tagsBlocked(Safe.title(m)))) {
+        if (!Boolean.TRUE.equals(v) && (tagsBlocked(Safe.genre(m), strict) || tagsBlocked(Safe.title(m), strict))) {
             v = Boolean.TRUE;
             VERDICTS.put(url, Boolean.TRUE);
-            remember(Store.MANGA, Collections.singleton(url));
+            remember(blockedKey, Collections.singleton(url));
         }
         if (Boolean.TRUE.equals(v)) {
             gateCover(m);
@@ -476,7 +526,7 @@ public final class Guard {
                 if (ok == null) return null;
                 if (!ok) {
                     VERDICTS.put(url, Boolean.TRUE);
-                    remember(Store.MANGA, Collections.singleton(url));
+                    remember(blockedKey, Collections.singleton(url));
                     return Boolean.TRUE;
                 }
             }

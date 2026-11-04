@@ -55,7 +55,10 @@ public final class Guard16 {
     static Object update(GuardHost h, String url, Object result) {
         SMangaUpdate u = (SMangaUpdate) result;
         Boolean blocked = Guard.judgeDetails(h, url, u.getManga());
-        if (Boolean.FALSE.equals(blocked)) return u;
+        if (Boolean.FALSE.equals(blocked)) {
+            Guard.unblockChapters(u.getChapters());
+            return u;
+        }
         // not sure (AniList could not be asked): no chapters this time, but nothing remembered
         if (blocked != null) Guard.blockChapters(u.getChapters());
         return new SMangaUpdate(u.getManga(), Collections.<SChapter>emptyList());
