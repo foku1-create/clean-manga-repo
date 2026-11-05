@@ -1,12 +1,11 @@
 # Clean manga extension list
 
 A guarded copy of the [Keiyoushi](https://github.com/keiyoushi/extensions) extension list for Tachimanga (and Mihon).
-It contains the normal **safe** sources and restores the app's **adult** source section, but adult content remains locked.
-Sources Keiyoushi labels **mixed** or does not label are kept out because the guard could not be proven reliable on every iOS device.
+Since 2026-11-05 it contains **every** Keiyoushi site (safe, mixed and adult). No site is left out; instead every
+extension has the guard, which blacks out titles tagged **hentai** or **ecchi** (and loli/shota).
 
-- Sites Keiyoushi labels **safe**: a title is blocked when its tags say so.
-- Sites labelled **NSFW** (mostly adult sites) appear in the adult section but get the **strict** guard, see below.
-- Sites labelled **mixed** and unlabelled sites are not published, except mixed sites named in [`allow.txt`](allow.txt) (now: AllManga), which get the tag guard.
+- Smut, porn, erotica, 18+, NSFW, adult, mature, yaoi, yuri and similar tags do **not** block.
+- There is no extra AniList/MangaUpdates check on adult-labelled sites any more: a title there shows unless it is tagged hentai or ecchi.
 - The list refreshes itself every hour, so updates and new extensions keep arriving.
 
 ## What the guard does
@@ -17,27 +16,14 @@ Sources Keiyoushi labels **mixed** or does not label are kept out because the gu
 - A list waits at most 12 seconds for these checks. A title that is not checked by then shows as **Checking**
   (black, like a blocked one). Reload the list a moment later and the clean ones appear.
 - Every answer is remembered, also after the app restarts, so a list you have seen before opens straight away.
-  Changing `block-tags.txt` makes the guard check the clean ones again.
-- Opening a blocked title shows **Blocked** and no chapters. Chapters you had before cannot be opened.
+  Changing `block-tags.txt` makes the guard check every title again.
+- Opening a blocked title shows **Blocked** and no chapters. Chapters of a title blocked under an older, longer
+  tag list open again once the guard finds it clean.
 
-The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai, ecchi, smut, erotica, 18+, nudity, yaoi and yuri including "Boys' Love" and "Girls' Love", the same words in other languages, and MangaDex's "suggestive" rating).
-Change that file and every extension is rebuilt within the hour.
+The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai and ecchi in several languages, loli/shota).
+Change that file and every extension is rebuilt within a few hours (300 per hourly run).
 
-**Adult** and **Mature** (and the same words in other languages, marked `~` in the file) no longer block on normal sites,
-because many ordinary series carry them only for violence. They still block on adult-labelled sites and in the
-AniList/MangaUpdates check, where they mark the 19+ editions. A title blocked earlier only for "Adult" or "Mature"
-is checked again; its chapters open once the check finds it clean.
-
-### Strict guard on adult-labelled sites
-
-On a site that is mostly adult, the adult titles are often not tagged as adult at all, so tags are not enough there.
-On these sites a title only shows when [AniList](https://anilist.co) and MangaUpdates know the title and
-both confirm it is clean. Anything unknown, adult-tagged, hentai, ecchi, or matching `block-tags.txt` stays blocked.
-
-- A title either database does not know stays **Blocked**, even if it is harmless. New or obscure series therefore stay black.
-- AniList answers about 25 questions a minute (8 titles each). A site that lists hundreds of titles at once
-  shows mostly **Checking** the first time; reload after a minute or two.
-- The site itself never opens: "open in browser" and "share" lead to this page instead.
+The strict check (`~` words, AniList and MangaUpdates) is still in the code but no extension uses it.
 
 ## Add it to Tachimanga
 
@@ -58,7 +44,6 @@ https://github.com/foku1-create/clean-manga-repo/raw/main/index.pb
 
 - `build.py` builds everything: picks the extensions, patches the guard in, signs, uploads, writes `index.pb`.
 - `guard/` is the guard itself; `tools/Patcher.java` puts it in front of the extension; `tools/ApkPatcher.java` makes the Android version.
-- `block.txt` removes a chosen extension completely.
-- `allow.txt` publishes a chosen **mixed** extension anyway, with the tag guard (`block.txt` still wins).
+- `block.txt` removes a chosen extension completely (empty now).
 - `removed.txt` lists everything that was left out, and why.
 - Patched files are signed with this repo's own key and stored as release files (`files-0` … `files-7`).

@@ -1,5 +1,4 @@
 # Extensions to leave out completely, whatever Keiyoushi labels them.
 # One name or package per line, e.g.  ManhuaHot
-MangaK
-MangaKa
-Scan Reader
+# Empty since 2026-11-05 (Isma's choice: no site is blocked, only hentai/ecchi titles).
+# Before that: MangaK, MangaKa, Scan Reader.

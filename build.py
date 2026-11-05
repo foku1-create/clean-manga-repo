@@ -1,9 +1,8 @@
 """Build the clean extension list for Tachimanga (and Mihon).
 
-Keiyoushi extensions labelled safe or NSFW (adult) are kept, with the clean-manga guard patched in.
-Mixed and unlabelled sources stay out. On NSFW sites the guard is strict: a title only shows when
-AniList and MangaUpdates both know it and confirm it clean, and the site itself never opens in the
-app's browser. Extensions named in block.txt stay out.
+Every Keiyoushi extension is kept (safe, mixed and adult; Isma's choice 2026-11-05), with the
+clean-manga guard patched in: titles tagged hentai or ecchi (block-tags.txt) are blacked out.
+There is no strict AniList check any more. Extensions named in block.txt stay out.
 
 The patched jar and APK of each extension are signed with our key and uploaded as release files
 (tags files-0 .. files-7). index.pb points the app at them.
@@ -203,25 +202,21 @@ def read_names(filename):
     return {line.strip().lower() for line in lines if line.strip() and not line.startswith("#")}
 
 
-def exclusion_reason(extension, block, allow=frozenset()):
-    """Return why an extension must stay out, or None when it is safe to publish.
+def exclusion_reason(extension, block):
+    """Return why an extension must stay out, or None when it is published.
 
-    allow: names or packages from allow.txt; a mixed extension named there is published with the tag guard.
+    Since 2026-11-05 (Isma's choice) every site is published, whatever Keiyoushi labels it;
+    the tag guard blocks hentai and ecchi titles. Only block.txt still leaves a site out.
     """
     ids = {extension["name"].lower(), extension["pkg"].lower()}
     if ids & block:
         return "block.txt"
-    warning = extension.get("warning")
-    if warning == MIXED and ids & allow:
-        return None
-    if warning not in {SAFE, NSFW}:
-        return f"not marked safe ({LABELS.get(warning, 'unlabelled')})"
     return None
 
 
 def guard_level(extension):
-    """Return the patcher's guard level for a publishable extension."""
-    return {SAFE: "false", MIXED: "true"}.get(extension.get("warning"), "strict")
+    """Return the patcher's guard level: tag guard everywhere, no strict AniList check (since 2026-11-05)."""
+    return "false" if extension.get("warning") == SAFE else "true"
 
 
 def java_tool(name):
@@ -406,8 +401,7 @@ def main():
     if len(exts) < 500:
         sys.exit(f"only {len(exts)} extensions upstream, format probably changed")
     block = read_names("block.txt")
-    allow = read_names("allow.txt")
-    only ={p.strip() for p in args.only.split(",")} if args.only else None
+    only = {p.strip() for p in args.only.split(",")} if args.only else None
     force_strict = {p.strip() for p in args.force_strict.split(",")} if args.force_strict else set()
 
     out_dir = Path(args.out) if args.out else HERE
@@ -422,7 +416,7 @@ def main():
     for e in exts:
         if only is not None and e["pkg"] not in only:
             continue
-        why = exclusion_reason(e, block, allow)
+        why = exclusion_reason(e, block)
         if why:
             removed.append((e, why))
         else:

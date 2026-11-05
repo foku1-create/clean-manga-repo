@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [build.py, allow.txt, block.txt, block-tags.txt, blocked.png, "guard/**", "tools/**"]
+    paths: [build.py, block.txt, block-tags.txt, blocked.png, "guard/**", "tools/**"]
 
 permissions:
   contents: write

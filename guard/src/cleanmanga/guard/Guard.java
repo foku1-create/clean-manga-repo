@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 public final class Guard {
     public static final String BLOCKED_TITLE = "Blocked";
     public static final String BLOCKED_COVER = "https://raw.githubusercontent.com/foku1-create/clean-manga-repo/main/blocked.png";
-    static final String BLOCKED_DESCRIPTION = "Hidden by your clean manga filter: this title is tagged hentai, ecchi or adult.";
+    static final String BLOCKED_DESCRIPTION = "Hidden by your clean manga filter: this title is tagged hentai or ecchi.";
     static final String UNCHECKED_TITLE = "Checking";
     static final String UNCHECKED_DESCRIPTION = "Hidden by your clean manga filter until its tags are checked. Open it, or reload the list in a moment.";
     static final long CHECK_TIMEOUT_MS = 25_000;
