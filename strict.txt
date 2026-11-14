@@ -1,0 +1,10 @@
+# Extensions that stay in the list but are LOCKED (Isma's request 2026-11-14: "block, not uninstall").
+# Built with the strict guard: titles are blacked out unless AniList and MangaUpdates both call
+# that exact title clean, chapters of blocked titles do not open, and web links lead to the repo page.
+# Their version code is 50 above the normal build, so a device that already has the normal
+# (open) build is offered the locked one as an update.
+# One name or package per line.
+eu.kanade.tachiyomi.extension.all.nhentaicom
+eu.kanade.tachiyomi.extension.all.nhentaito
+eu.kanade.tachiyomi.extension.all.nhentaiwebsite
+eu.kanade.tachiyomi.extension.all.nhentaixxx

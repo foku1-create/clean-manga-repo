@@ -3,6 +3,9 @@
 Every Keiyoushi extension is kept (safe, mixed and adult; Isma's choice 2026-11-05), with the
 clean-manga guard patched in: titles tagged hentai or ecchi (block-tags.txt) are blacked out.
 There is no strict AniList check any more. Extensions named in block.txt stay out.
+Extensions named in strict.txt stay in the list but are locked: built with the strict guard
+(a title only shows when AniList and MangaUpdates both call that exact title clean, web links
+lead to the repo page) and with a higher version code, so devices that have them get an update.
 
 The patched jar and APK of each extension are signed with our key and uploaded as release files
 (tags files-0 .. files-7). index.pb points the app at them.
@@ -53,6 +56,9 @@ LIBS = {
 }
 TOOL_LIBS = ["asm", "asm-tree", "r8", "apksig"]
 GUARD_LIBS = ["kotlin-stdlib", "rxjava", "okhttp", "okio"]
+# strict.txt: sites Isma wants blocked inside the app without uninstalling them (2026-11-14).
+LOCKED_FILE = "strict.txt"
+LOCKED_BUMP_OFFSET = 50
 GUARD_INPUTS = ["block-tags.txt", "blocked.png", "tools/Patcher.java", "tools/ApkPatcher.java", "tools/gen_tags.py"]
 
 
@@ -212,6 +218,20 @@ def exclusion_reason(extension, block):
     if ids & block:
         return "block.txt"
     return None
+
+
+def is_locked(extension, locked):
+    """True for an extension named in strict.txt (by name or package)."""
+    return bool({extension["name"].lower(), extension["pkg"].lower()} & locked)
+
+
+def code_bump(bump, locked):
+    """Version-code bump. Locked extensions sit LOCKED_BUMP_OFFSET above the normal build of the
+    same upstream version, so a device that installed the normal build is offered the locked one."""
+    value = bump + LOCKED_BUMP_OFFSET if locked else bump
+    if value > 99:
+        sys.exit("version bump passed 99; the version code scheme needs a rethink")
+    return value
 
 
 def guard_level(extension):
@@ -401,6 +421,7 @@ def main():
     if len(exts) < 500:
         sys.exit(f"only {len(exts)} extensions upstream, format probably changed")
     block = read_names("block.txt")
+    locked = read_names(LOCKED_FILE)
     only = {p.strip() for p in args.only.split(",")} if args.only else None
     force_strict = {p.strip() for p in args.force_strict.split(",")} if args.force_strict else set()
 
@@ -455,7 +476,8 @@ def main():
         apk = res.get(1, "").rsplit("/", 1)[-1]
         if not jar.endswith(".jar") or not apk.endswith(".apk"):
             return None
-        return jar[:-4] + f".g{bump}.jar", apk[:-4] + f".g{bump}.apk"
+        tail = f".g{bump}.strict" if is_locked(e, locked) else f".g{bump}"
+        return jar[:-4] + tail + ".jar", apk[:-4] + tail + ".apk"
 
     todo, ready = [], {}
     for e in wanted:
@@ -501,7 +523,7 @@ def main():
                     failed.add(item[0]["pkg"])
                     log(f"download failed {item[0]['name']}: {ex}")
 
-        jobs = []
+        jobs = {}  # version-code bump -> patcher jobs (locked extensions get a higher one)
         for e, (jar, apk) in todo:
             if e["pkg"] in failed:
                 continue
@@ -509,19 +531,20 @@ def main():
                 continue
             # safe / mixed / adult (and anything unlabelled) -> the guard's level
             level = guard_level(e)
-            if e["pkg"] in force_strict:
+            if e["pkg"] in force_strict or is_locked(e, locked):
                 level = "strict"
-            jobs.append("\t".join([str(work / "up" / jar), str(work / "out" / jar), e["lib"], level,
-                                   str(work / "up" / apk), str(work / "out" / apk)]))
-        (work / "jobs.tsv").write_text("\n".join(jobs) + "\n", encoding="utf-8")
+            jobs.setdefault(code_bump(bump, is_locked(e, locked)), []).append(
+                "\t".join([str(work / "up" / jar), str(work / "out" / jar), e["lib"], level,
+                           str(work / "up" / apk), str(work / "out" / apk)]))
         results = {
             jar: ("ok", "cached")
             for e, (jar, apk) in todo
             if (work / "out" / jar).exists() and (work / "out" / apk).exists()
         }
-        if jobs:
+        for job_bump, batch in sorted(jobs.items()):
+            (work / "jobs.tsv").write_text("\n".join(batch) + "\n", encoding="utf-8")
             r = subprocess.run([java_tool("java"), "-Xmx2g", "-cp", classpath, "Patcher", "--batch", str(work / "jobs.tsv"),
-                                str(BUILD / "guard-classes"), str(bump), args.keystore, args.alias],
+                                str(BUILD / "guard-classes"), str(job_bump), args.keystore, args.alias],
                                capture_output=True, text=True, encoding="utf-8")
             if r.returncode != 0:
                 sys.exit(f"patcher crashed:\n{r.stderr}")
@@ -562,7 +585,7 @@ def main():
         pkg = e["pkg"]
         if pkg in ready:
             jar, apk = ready[pkg]
-            code = int(e["code"]) * 100 + bump
+            code = int(e["code"]) * 100 + code_bump(bump, is_locked(e, locked))
             entries.append(rebuild_entry(e, url(pkg, apk), url(pkg, jar), code))
             published.append(e)
         elif pkg in unguardable:

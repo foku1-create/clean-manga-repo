@@ -23,7 +23,7 @@ extension has the guard, which blacks out titles tagged **hentai** or **ecchi** 
 The tags that block are in [`block-tags.txt`](block-tags.txt) (hentai and ecchi in several languages, loli/shota).
 Change that file and every extension is rebuilt within a few hours (300 per hourly run).
 
-The strict check (`~` words, AniList and MangaUpdates) is still in the code but no extension uses it.
+The strict check (`~` words, AniList and MangaUpdates) is used only for the extensions in `strict.txt`.
 
 ## Add it to Tachimanga
 
@@ -45,5 +45,7 @@ https://github.com/foku1-create/clean-manga-repo/raw/main/index.pb
 - `build.py` builds everything: picks the extensions, patches the guard in, signs, uploads, writes `index.pb`.
 - `guard/` is the guard itself; `tools/Patcher.java` puts it in front of the extension; `tools/ApkPatcher.java` makes the Android version.
 - `block.txt` removes a chosen extension completely (empty now).
+- `strict.txt` keeps an extension in the list but locks it: strict guard, web links go nowhere, and a higher
+  version code so devices that already have it are offered the locked version (the nHentai sources, since 2026-11-14).
 - `removed.txt` lists everything that was left out, and why.
 - Patched files are signed with this repo's own key and stored as release files (`files-0` … `files-7`).

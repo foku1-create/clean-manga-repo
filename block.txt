@@ -1,8 +1,4 @@
 # Extensions to leave out completely, whatever Keiyoushi labels them.
 # One name or package per line, e.g.  ManhuaHot
-# Explicit nHentai source ban requested by Isma on 2026-11-13.
-# Other sources retain the existing hentai/ecchi title guard.
-eu.kanade.tachiyomi.extension.all.nhentaicom
-eu.kanade.tachiyomi.extension.all.nhentaito
-eu.kanade.tachiyomi.extension.all.nhentaiwebsite
-eu.kanade.tachiyomi.extension.all.nhentaixxx
+# The nHentai sources moved to strict.txt on 2026-11-14: Isma wants them blocked, not removed,
+# so devices that already have them get a locked update instead of keeping an open copy.
