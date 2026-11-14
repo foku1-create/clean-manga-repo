@@ -3,9 +3,9 @@
 Every Keiyoushi extension is kept (safe, mixed and adult; Isma's choice 2026-11-05), with the
 clean-manga guard patched in: titles tagged hentai or ecchi (block-tags.txt) are blacked out.
 There is no strict AniList check any more. Extensions named in block.txt stay out.
-Extensions named in strict.txt stay in the list but are locked: built with the strict guard
-(a title only shows when AniList and MangaUpdates both call that exact title clean, web links
-lead to the repo page) and with a higher version code, so devices that have them get an update.
+Extensions named in strict.txt stay in the list but are locked: every site address in them is
+pointed at a name ending in .invalid (the source page cannot load at all), they get the strict
+guard on top, and a higher version code, so devices that have them get an update.
 
 The patched jar and APK of each extension are signed with our key and uploaded as release files
 (tags files-0 .. files-7). index.pb points the app at them.
@@ -20,6 +20,7 @@ import gzip
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -57,8 +58,11 @@ LIBS = {
 TOOL_LIBS = ["asm", "asm-tree", "r8", "apksig"]
 GUARD_LIBS = ["kotlin-stdlib", "rxjava", "okhttp", "okio"]
 # strict.txt: sites Isma wants blocked inside the app without uninstalling them (2026-11-14).
+# The offset went 50 -> 51 when locked sites also lost their site address (whole page dead);
+# raise it again whenever locked builds change, so devices are offered the new one.
 LOCKED_FILE = "strict.txt"
-LOCKED_BUMP_OFFSET = 50
+LOCKED_BUMP_OFFSET = 51
+DEAD_HOST_SUFFIX = ".invalid"  # RFC 6761: never resolves anywhere
 GUARD_INPUTS = ["block-tags.txt", "blocked.png", "tools/Patcher.java", "tools/ApkPatcher.java", "tools/gen_tags.py"]
 
 
@@ -223,6 +227,82 @@ def exclusion_reason(extension, block):
 def is_locked(extension, locked):
     """True for an extension named in strict.txt (by name or package)."""
     return bool({extension["name"].lower(), extension["pkg"].lower()} & locked)
+
+
+LOCK_URL = re.compile(r"^(https?://)([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)
+
+
+def lock_url(text):
+    """'https://site.to/x' -> 'https://site.to.invalid/x'. Anything else is returned unchanged."""
+    m = LOCK_URL.match(text)
+    if not m or m.group(2).lower().endswith(DEAD_HOST_SUFFIX):
+        return text
+    return m.group(1) + m.group(2) + DEAD_HOST_SUFFIX + m.group(3)
+
+
+def lock_class(data):
+    """Rewrite the class file's UTF-8 constants with lock_url. Returns (new bytes, how many changed).
+
+    Constants are referenced by index, never by byte offset, so their lengths may change freely.
+    """
+    if data[:4] != b"\xca\xfe\xba\xbe":
+        return data, 0
+    count = int.from_bytes(data[8:10], "big")
+    out, i, k, changed = bytearray(data[:10]), 10, 1, 0
+    while k < count:
+        tag = data[i]
+        if tag == 1:
+            n = int.from_bytes(data[i + 1:i + 3], "big")
+            raw = data[i + 3:i + 3 + n]
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = None
+            new = lock_url(text) if text is not None else None
+            if text is not None and LOCK_URL.match(text) and new == text:
+                changed += 1  # already locked (a resumed build): still counts as a disabled address
+                out += data[i:i + 3 + n]
+            elif new is not None and new != text:
+                enc = new.encode("utf-8")
+                out += b"\x01" + len(enc).to_bytes(2, "big") + enc
+                changed += 1
+            else:
+                out += data[i:i + 3 + n]
+            i += 3 + n
+        elif tag in (3, 4, 9, 10, 11, 12, 17, 18):
+            out += data[i:i + 5]
+            i += 5
+        elif tag in (5, 6):
+            out += data[i:i + 9]
+            i += 9
+            k += 1
+        elif tag in (7, 8, 16, 19, 20):
+            out += data[i:i + 3]
+            i += 3
+        elif tag == 15:
+            out += data[i:i + 4]
+            i += 4
+        else:
+            raise ValueError(f"unknown constant pool tag {tag}")
+        k += 1
+    out += data[i:]
+    return bytes(out), changed
+
+
+def lock_jar(path):
+    """Disable every site address in a jar's classes in place. Returns how many were changed."""
+    import zipfile
+    total = 0
+    tmp = path.with_name(path.name + ".locking")
+    with zipfile.ZipFile(path) as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+        for info in src.infolist():
+            data = src.read(info)
+            if info.filename.endswith(".class"):
+                data, changed = lock_class(data)
+                total += changed
+            dst.writestr(info, data)
+    os.replace(tmp, path)
+    return total
 
 
 def code_bump(bump, locked):
@@ -476,7 +556,7 @@ def main():
         apk = res.get(1, "").rsplit("/", 1)[-1]
         if not jar.endswith(".jar") or not apk.endswith(".apk"):
             return None
-        tail = f".g{bump}.strict" if is_locked(e, locked) else f".g{bump}"
+        tail = f".g{bump}.locked{LOCKED_BUMP_OFFSET}" if is_locked(e, locked) else f".g{bump}"
         return jar[:-4] + tail + ".jar", apk[:-4] + tail + ".apk"
 
     todo, ready = [], {}
@@ -522,6 +602,16 @@ def main():
                 except Exception as ex:
                     failed.add(item[0]["pkg"])
                     log(f"download failed {item[0]['name']}: {ex}")
+
+        # Locked extensions: point every site address in the upstream jar at a name that can
+        # never resolve, so the source page itself does not load (the patcher adds the guard after).
+        for e, (jar, apk) in todo:
+            if is_locked(e, locked) and e["pkg"] not in failed:
+                changed = lock_jar(work / "up" / jar)
+                log(f"locked {e['name']}: {changed} site address(es) disabled")
+                if not changed:
+                    failed.add(e["pkg"])
+                    log(f"lock failed {e['name']}: no site address found, not publishing it")
 
         jobs = {}  # version-code bump -> patcher jobs (locked extensions get a higher one)
         for e, (jar, apk) in todo:

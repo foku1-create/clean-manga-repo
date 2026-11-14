@@ -60,14 +60,42 @@ class LockedExtensionTests(unittest.TestCase):
         self.assertFalse(build.is_locked({"name": "MangaDex", "pkg": "all.mangadex"}, {"nhentai.to"}))
 
     def test_locked_version_is_above_the_normal_one(self):
-        for bump in (1, 10, 49):
+        for bump in (1, 10, 99 - build.LOCKED_BUMP_OFFSET):
             self.assertGreater(build.code_bump(bump, True), build.code_bump(bump, False))
             self.assertEqual(build.code_bump(bump, False), bump)
             self.assertLessEqual(build.code_bump(bump, True), 99)
 
+    def test_locked_version_is_above_the_first_lock(self):
+        # 2026-11-14 the first locked build used offset 50; devices that have it must update again
+        self.assertGreater(build.code_bump(10, True), 10 + 50)
+
     def test_locked_bump_never_spills_into_the_upstream_digits(self):
         with self.assertRaises(SystemExit):
-            build.code_bump(50, True)
+            build.code_bump(100 - build.LOCKED_BUMP_OFFSET, True)
+
+    def test_site_addresses_are_disabled(self):
+        self.assertEqual(build.lock_url("https://nhentai.to"), "https://nhentai.to.invalid")
+        self.assertEqual(build.lock_url("https://nhentai.jp.net/g/1"), "https://nhentai.jp.net.invalid/g/1")
+        self.assertEqual(build.lock_url("http://9hentai.uk"), "http://9hentai.uk.invalid")
+
+    def test_lock_leaves_other_text_alone_and_is_idempotent(self):
+        for text in ("NHentai.to", "https:////", "eu.kanade.tachiyomi.multisrc.x", "https://nhentai.to.invalid"):
+            self.assertEqual(build.lock_url(text), text)
+
+    def test_lock_class_rewrites_only_url_constants(self):
+        def utf8(s):
+            b = s.encode()
+            return b"\x01" + len(b).to_bytes(2, "big") + b
+        pool = utf8("https://nhentai.to") + b"\x08\x00\x01" + utf8("NHentai.to") + b"\x03\x00\x00\x00\x2a"
+        cls = b"\xca\xfe\xba\xbe\x00\x00\x00\x34" + (5).to_bytes(2, "big") + pool + b"\x00\x21TAIL"
+        out, changed = build.lock_class(cls)
+        self.assertEqual(changed, 1)
+        self.assertIn(b"https://nhentai.to.invalid", out)
+        self.assertIn(b"NHentai.to", out)
+        self.assertTrue(out.endswith(b"\x00\x21TAIL"))
+        again, changed_again = build.lock_class(out)
+        self.assertEqual(again, out)
+        self.assertEqual(changed_again, 1)
 
     def test_normal_sources_are_not_locked(self):
         locked = build.read_names(build.LOCKED_FILE)
