@@ -3,7 +3,7 @@
 Every Keiyoushi extension is kept (safe, mixed and adult; Isma's choice 2026-11-05), with the
 clean-manga guard patched in: titles tagged hentai or ecchi (block-tags.txt) are blacked out.
 There is no strict AniList check any more. Extensions named in block.txt stay out.
-Extensions named in strict.txt stay in the list but are locked: every site address in them is
+Extensions named in strict.txt (or matching a *word* line there) stay in the list but are locked: every site address in them is
 pointed at a name ending in .invalid (the source page cannot load at all), they get the strict
 guard on top, and a higher version code, so devices that have them get an update.
 
@@ -245,8 +245,17 @@ def lock_check(locked):
 
 
 def is_locked(extension, locked):
-    """True for an extension named in strict.txt (by name or package)."""
-    return bool({extension["name"].lower(), extension["pkg"].lower()} & locked)
+    """True for an extension named in strict.txt (by name or package).
+
+    A strict.txt line written as *word* locks every extension whose name or package contains
+    that word (Isma, 2026-11-15: "block all the other pages where the name hentai is in them"),
+    so sources Keiyoushi adds later are locked too.
+    """
+    ids = {extension["name"].lower(), extension["pkg"].lower()}
+    if ids & locked:
+        return True
+    words = [w[1:-1] for w in locked if len(w) > 2 and w.startswith("*") and w.endswith("*")]
+    return any(word in i for word in words for i in ids)
 
 
 LOCK_URL = re.compile(r"^(https?://)([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)

@@ -136,9 +136,29 @@ class LockedExtensionTests(unittest.TestCase):
             build.lock_check(set(self.NHENTAI))
         build.lock_check(set(self.NHENTAI) | {self.WEBTOON_HENTAI})
 
+    def test_every_source_with_hentai_in_its_name_is_locked(self):
+        # Isma, 2026-11-15: "block all the other pages where the name hentai is in them"
+        locked = build.read_names(build.LOCKED_FILE)
+        self.assertIn("*hentai*", locked)
+        for name, pkg in [
+            ("HentaiFox", "eu.kanade.tachiyomi.extension.all.hentaifox"),
+            ("Hentai Slayer", "eu.kanade.tachiyomi.extension.ar.hentaislayer"),
+            ("IMHentai", "eu.kanade.tachiyomi.extension.all.imhentai"),
+            ("X-Manga", "eu.kanade.tachiyomi.extension.fr.scanhentaimenu"),  # hentai only in the package
+            ("A New Hentai Site", "eu.kanade.tachiyomi.extension.en.newsite"),  # one added later
+        ]:
+            self.assertTrue(build.is_locked({"name": name, "pkg": pkg}, locked), name)
+
+    def test_word_lock_needs_a_real_word(self):
+        mangadex = {"name": "MangaDex", "pkg": "eu.kanade.tachiyomi.extension.all.mangadex"}
+        for line in ("*", "**", "*x", "x*"):
+            self.assertFalse(build.is_locked(mangadex, {line}), line)
+
     def test_normal_sources_are_not_locked(self):
         locked = build.read_names(build.LOCKED_FILE)
         self.assertFalse(build.is_locked({"name": "MangaDex", "pkg": "eu.kanade.tachiyomi.extension.all.mangadex"}, locked))
+        self.assertFalse(build.is_locked({"name": "Webtoons.com", "pkg": "eu.kanade.tachiyomi.extension.all.webtoons"}, locked))
+        self.assertFalse(build.is_locked({"name": "Hive Scans", "pkg": "eu.kanade.tachiyomi.extension.en.infernalvoidscans"}, locked))
 
 
 if __name__ == "__main__":

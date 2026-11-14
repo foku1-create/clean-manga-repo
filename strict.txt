@@ -11,3 +11,7 @@ eu.kanade.tachiyomi.extension.all.nhentaiwebsite
 eu.kanade.tachiyomi.extension.all.nhentaixxx
 # Webtoon Hentai (unoriginal), added 2026-11-14 at Isma's request
 eu.kanade.tachiyomi.extension.en.webtoonhentai
+# 2026-11-15, Isma: "block all the other pages where the name hentai is in them".
+# A line written as *word* locks every source whose name or package contains the word,
+# including ones Keiyoushi adds later.
+*hentai*
