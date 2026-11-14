@@ -1,4 +1,1 @@
-NHentai.to (nhentaito): block.txt
-NHentai.website (nhentaiwebsite): block.txt
-NHentai.xxx (nhentaixxx): block.txt
-nHentai.com (unoriginal) (nhentaicom): block.txt
+
