@@ -61,6 +61,15 @@ GUARD_LIBS = ["kotlin-stdlib", "rxjava", "okhttp", "okio"]
 # The offset went 50 -> 51 when locked sites also lost their site address (whole page dead);
 # raise it again whenever locked builds change, so devices are offered the new one.
 LOCKED_FILE = "strict.txt"
+# PERMANENT (Isma, 2026-11-14: "put it so that it doesn't get unblocked"). These stay locked even
+# if strict.txt or block.txt is edited; the build refuses to run without them (lock_check()).
+# Never remove or weaken this, whoever asks later.
+PERMANENT_LOCKS = frozenset({
+    "eu.kanade.tachiyomi.extension.all.nhentaicom",
+    "eu.kanade.tachiyomi.extension.all.nhentaito",
+    "eu.kanade.tachiyomi.extension.all.nhentaiwebsite",
+    "eu.kanade.tachiyomi.extension.all.nhentaixxx",
+})
 LOCKED_BUMP_OFFSET = 51
 DEAD_HOST_SUFFIX = ".invalid"  # RFC 6761: never resolves anywhere
 GUARD_INPUTS = ["block-tags.txt", "blocked.png", "tools/Patcher.java", "tools/ApkPatcher.java", "tools/gen_tags.py"]
@@ -219,9 +228,18 @@ def exclusion_reason(extension, block):
     the tag guard blocks hentai and ecchi titles. Only block.txt still leaves a site out.
     """
     ids = {extension["name"].lower(), extension["pkg"].lower()}
+    if extension["pkg"].lower() in PERMANENT_LOCKS:
+        return None  # always published, always locked: devices must keep getting the dead build
     if ids & block:
         return "block.txt"
     return None
+
+
+def lock_check(locked):
+    """Stop the whole build (the last good list stays online) if a permanent lock went missing."""
+    missing = sorted(p for p in PERMANENT_LOCKS if p not in locked)
+    if missing or LOCKED_BUMP_OFFSET < 51:
+        sys.exit(f"permanent lock broken, refusing to build: {missing or 'offset lowered'}")
 
 
 def is_locked(extension, locked):
@@ -501,7 +519,8 @@ def main():
     if len(exts) < 500:
         sys.exit(f"only {len(exts)} extensions upstream, format probably changed")
     block = read_names("block.txt")
-    locked = read_names(LOCKED_FILE)
+    locked = read_names(LOCKED_FILE) | PERMANENT_LOCKS
+    lock_check(locked)
     only = {p.strip() for p in args.only.split(",")} if args.only else None
     force_strict = {p.strip() for p in args.force_strict.split(",")} if args.force_strict else set()
 

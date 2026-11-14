@@ -47,5 +47,8 @@ https://github.com/foku1-create/clean-manga-repo/raw/main/index.pb
 - `block.txt` removes a chosen extension completely (empty now).
 - `strict.txt` keeps an extension in the list but locks it: strict guard, web links go nowhere, and a higher
   version code so devices that already have it are offered the locked version (the nHentai sources, since 2026-11-14).
+- **Permanent lock:** the four nHentai sources are written into `build.py` (`PERMANENT_LOCKS`). They stay locked
+  even if `strict.txt` or `block.txt` is edited, and the hourly job runs the policy tests first: if the lock is
+  weakened, nothing is published and the last good list stays online. Isma's request, 2026-11-14.
 - `removed.txt` lists everything that was left out, and why.
 - Patched files are signed with this repo's own key and stored as release files (`files-0` … `files-7`).

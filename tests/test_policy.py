@@ -97,6 +97,27 @@ class LockedExtensionTests(unittest.TestCase):
         self.assertEqual(again, out)
         self.assertEqual(changed_again, 1)
 
+    def test_permanent_locks_cover_all_four(self):
+        # PERMANENT (Isma, 2026-11-14). Never delete or loosen this test.
+        self.assertTrue(set(self.NHENTAI) <= build.PERMANENT_LOCKS)
+
+    def test_removing_them_from_strict_txt_does_not_unlock(self):
+        locked = set() | build.PERMANENT_LOCKS  # as main() builds it, even with an empty strict.txt
+        for pkg in self.NHENTAI:
+            self.assertTrue(build.is_locked({"name": "x", "pkg": pkg}, locked), pkg)
+
+    def test_block_txt_cannot_drop_a_permanent_lock(self):
+        for pkg in self.NHENTAI:
+            self.assertIsNone(build.exclusion_reason({"name": "NHentai", "pkg": pkg}, {pkg, "nhentai"}), pkg)
+
+    def test_build_refuses_to_run_without_the_lock(self):
+        with self.assertRaises(SystemExit):
+            build.lock_check(set(self.NHENTAI[1:]))
+        build.lock_check(set(self.NHENTAI))  # complete: no exit
+
+    def test_lock_offset_never_goes_back_below_the_live_lock(self):
+        self.assertGreaterEqual(build.LOCKED_BUMP_OFFSET, 51)
+
     def test_normal_sources_are_not_locked(self):
         locked = build.read_names(build.LOCKED_FILE)
         self.assertFalse(build.is_locked({"name": "MangaDex", "pkg": "eu.kanade.tachiyomi.extension.all.mangadex"}, locked))
