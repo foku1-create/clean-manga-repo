@@ -9,3 +9,5 @@ eu.kanade.tachiyomi.extension.all.nhentaicom
 eu.kanade.tachiyomi.extension.all.nhentaito
 eu.kanade.tachiyomi.extension.all.nhentaiwebsite
 eu.kanade.tachiyomi.extension.all.nhentaixxx
+# Webtoon Hentai (unoriginal), added 2026-11-14 at Isma's request
+eu.kanade.tachiyomi.extension.en.webtoonhentai

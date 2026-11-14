@@ -69,6 +69,8 @@ PERMANENT_LOCKS = frozenset({
     "eu.kanade.tachiyomi.extension.all.nhentaito",
     "eu.kanade.tachiyomi.extension.all.nhentaiwebsite",
     "eu.kanade.tachiyomi.extension.all.nhentaixxx",
+    # added 2026-11-14 at Isma's request ("add webtoon hentai page into the block"), same permanence
+    "eu.kanade.tachiyomi.extension.en.webtoonhentai",
 })
 LOCKED_BUMP_OFFSET = 51
 DEAD_HOST_SUFFIX = ".invalid"  # RFC 6761: never resolves anywhere

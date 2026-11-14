@@ -113,10 +113,28 @@ class LockedExtensionTests(unittest.TestCase):
     def test_build_refuses_to_run_without_the_lock(self):
         with self.assertRaises(SystemExit):
             build.lock_check(set(self.NHENTAI[1:]))
-        build.lock_check(set(self.NHENTAI))  # complete: no exit
+        build.lock_check(set(build.PERMANENT_LOCKS))  # complete: no exit
 
     def test_lock_offset_never_goes_back_below_the_live_lock(self):
         self.assertGreaterEqual(build.LOCKED_BUMP_OFFSET, 51)
+
+    WEBTOON_HENTAI = "eu.kanade.tachiyomi.extension.en.webtoonhentai"
+
+    def test_webtoon_hentai_is_permanently_locked(self):
+        # PERMANENT (Isma, 2026-11-14: "add webtoon hentai page into the block"). Never delete or loosen.
+        self.assertIn(self.WEBTOON_HENTAI, build.PERMANENT_LOCKS)
+        self.assertIn(self.WEBTOON_HENTAI, build.read_names(build.LOCKED_FILE))
+        self.assertTrue(build.is_locked({"name": "Webtoon Hentai (unoriginal)", "pkg": self.WEBTOON_HENTAI}, set() | build.PERMANENT_LOCKS))
+        self.assertIsNone(build.exclusion_reason({"name": "Webtoon Hentai (unoriginal)", "pkg": self.WEBTOON_HENTAI}, {self.WEBTOON_HENTAI}))
+
+    def test_webtoon_hentai_site_addresses_are_disabled(self):
+        self.assertEqual(build.lock_url("https://webtoonhentai.org"), "https://webtoonhentai.org.invalid")
+        self.assertEqual(build.lock_url("https://manhwa18.cc/webtoon/"), "https://manhwa18.cc.invalid/webtoon/")
+
+    def test_build_refuses_to_run_without_webtoon_hentai(self):
+        with self.assertRaises(SystemExit):
+            build.lock_check(set(self.NHENTAI))
+        build.lock_check(set(self.NHENTAI) | {self.WEBTOON_HENTAI})
 
     def test_normal_sources_are_not_locked(self):
         locked = build.read_names(build.LOCKED_FILE)
