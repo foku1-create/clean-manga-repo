@@ -15,3 +15,9 @@ eu.kanade.tachiyomi.extension.en.webtoonhentai
 # A line written as *word* locks every source whose name or package contains the word,
 # including ones Keiyoushi adds later.
 *hentai*
+# 2026-11-16, Isma: "block the websites that have adult in their names and also ero or ecchi".
+# *word* = anywhere in the name or package. ero* = a word in the NAME that starts with "ero"
+# (a plain *ero* would also lock Hero, Zero, Emperor Scan and Tower Of God).
+*adult*
+*ecchi*
+ero*

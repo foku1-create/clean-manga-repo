@@ -255,7 +255,13 @@ def is_locked(extension, locked):
     if ids & locked:
         return True
     words = [w[1:-1] for w in locked if len(w) > 2 and w.startswith("*") and w.endswith("*")]
-    return any(word in i for word in words for i in ids)
+    if any(word in i for word in words for i in ids):
+        return True
+    # A line written as word* (Isma, 2026-11-16: "ero") locks every extension whose NAME has a
+    # word starting with it: "Ero18x", "Erofus", "Erotic X" yes; "Hero", "Zero", "Tower Of God" no.
+    starts = [w[:-1] for w in locked if len(w) > 2 and w.endswith("*") and not w.startswith("*")]
+    name = extension["name"].lower()
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(s), name) for s in starts)
 
 
 LOCK_URL = re.compile(r"^(https?://)([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)

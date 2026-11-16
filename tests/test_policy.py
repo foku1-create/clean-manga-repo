@@ -160,6 +160,37 @@ class LockedExtensionTests(unittest.TestCase):
         self.assertFalse(build.is_locked({"name": "Webtoons.com", "pkg": "eu.kanade.tachiyomi.extension.all.webtoons"}, locked))
         self.assertFalse(build.is_locked({"name": "Hive Scans", "pkg": "eu.kanade.tachiyomi.extension.en.infernalvoidscans"}, locked))
 
+    def test_adult_ecchi_and_ero_sources_are_locked(self):
+        # Isma, 2026-11-16: "block the websites that have adult in their names and also ero or ecchi"
+        locked = build.read_names(build.LOCKED_FILE)
+        for line in ("*adult*", "*ecchi*", "ero*"):
+            self.assertIn(line, locked)
+        for name, pkg in (
+            ("Free Adult Comix", "eu.kanade.tachiyomi.extension.all.freeadultcomix"),
+            ("MangaworldAdult", "eu.kanade.tachiyomi.extension.it.mangaworldadult"),
+            ("MyAdultComics", "eu.kanade.tachiyomi.extension.en.myadultcomics"),
+            ("Ecchi-Doujin", "eu.kanade.tachiyomi.extension.th.ecchidoujin"),
+            ("Super Ecchi", "eu.kanade.tachiyomi.extension.pt.superecchi"),
+            ("Ero18x", "eu.kanade.tachiyomi.extension.en.ero18x"),
+            ("Erofus", "eu.kanade.tachiyomi.extension.en.erofus"),
+            ("Erotic Comics", "p"),
+        ):
+            self.assertTrue(build.is_locked({"name": name, "pkg": pkg}, locked), name)
+
+    def test_ero_does_not_lock_hero_or_zero(self):
+        locked = build.read_names(build.LOCKED_FILE)
+        for name, pkg in (
+            ("AeroToon", "eu.kanade.tachiyomi.extension.tr.aerotoon"),
+            ("BenDezOmniHero", "eu.kanade.tachiyomi.extension.pt.bendezomnihero"),
+            ("Emperor Scan", "eu.kanade.tachiyomi.extension.es.emperorscan"),
+            ("HERO'S Web", "eu.kanade.tachiyomi.extension.ja.herosweb"),
+            ("KeroScans", "eu.kanade.tachiyomi.extension.en.keroscans"),
+            ("Point Zero Toons", "eu.kanade.tachiyomi.extension.pt.pointzerotoons"),
+            ("Tower Of God Manga Online", "eu.kanade.tachiyomi.extension.en.towerofgodmangaonline"),
+            ("Zerosum Online", "eu.kanade.tachiyomi.extension.ja.zerosumonline"),
+        ):
+            self.assertFalse(build.is_locked({"name": name, "pkg": pkg}, locked), name)
+
 
 if __name__ == "__main__":
     unittest.main()
