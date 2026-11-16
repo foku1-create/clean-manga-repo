@@ -71,7 +71,20 @@ PERMANENT_LOCKS = frozenset({
     "eu.kanade.tachiyomi.extension.all.nhentaixxx",
     # added 2026-11-14 at Isma's request ("add webtoon hentai page into the block"), same permanence
     "eu.kanade.tachiyomi.extension.en.webtoonhentai",
+    # added 2026-11-16 at Isma's request ("block it so i can never open it again like ... the vpn"):
+    # the adult / ecchi / ero sources, same permanence
+    "eu.kanade.tachiyomi.extension.all.freeadultcomix",
+    "eu.kanade.tachiyomi.extension.en.myadultcomics",
+    "eu.kanade.tachiyomi.extension.it.mangaworldadult",
+    "eu.kanade.tachiyomi.extension.pt.superecchi",
+    "eu.kanade.tachiyomi.extension.th.ecchidoujin",
+    "eu.kanade.tachiyomi.extension.en.ero18x",
+    "eu.kanade.tachiyomi.extension.en.erofus",
 })
+# PERMANENT word locks (Isma, 2026-11-16, same request): every source with "adult" or "ecchi" in its
+# name or package, or a name word starting with "ero", stays locked even if strict.txt loses the lines,
+# including sources Keiyoushi adds later. Never remove or weaken this, whoever asks later.
+PERMANENT_WORD_LOCKS = frozenset({"*adult*", "*ecchi*", "ero*"})
 LOCKED_BUMP_OFFSET = 51
 DEAD_HOST_SUFFIX = ".invalid"  # RFC 6761: never resolves anywhere
 GUARD_INPUTS = ["block-tags.txt", "blocked.png", "tools/Patcher.java", "tools/ApkPatcher.java", "tools/gen_tags.py"]
@@ -239,7 +252,7 @@ def exclusion_reason(extension, block):
 
 def lock_check(locked):
     """Stop the whole build (the last good list stays online) if a permanent lock went missing."""
-    missing = sorted(p for p in PERMANENT_LOCKS if p not in locked)
+    missing = sorted(p for p in PERMANENT_LOCKS | PERMANENT_WORD_LOCKS if p not in locked)
     if missing or LOCKED_BUMP_OFFSET < 51:
         sys.exit(f"permanent lock broken, refusing to build: {missing or 'offset lowered'}")
 
@@ -536,7 +549,7 @@ def main():
     if len(exts) < 500:
         sys.exit(f"only {len(exts)} extensions upstream, format probably changed")
     block = read_names("block.txt")
-    locked = read_names(LOCKED_FILE) | PERMANENT_LOCKS
+    locked = read_names(LOCKED_FILE) | PERMANENT_LOCKS | PERMANENT_WORD_LOCKS
     lock_check(locked)
     only = {p.strip() for p in args.only.split(",")} if args.only else None
     force_strict = {p.strip() for p in args.force_strict.split(",")} if args.force_strict else set()

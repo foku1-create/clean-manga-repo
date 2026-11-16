@@ -113,7 +113,7 @@ class LockedExtensionTests(unittest.TestCase):
     def test_build_refuses_to_run_without_the_lock(self):
         with self.assertRaises(SystemExit):
             build.lock_check(set(self.NHENTAI[1:]))
-        build.lock_check(set(build.PERMANENT_LOCKS))  # complete: no exit
+        build.lock_check(set(build.PERMANENT_LOCKS) | build.PERMANENT_WORD_LOCKS)  # complete: no exit
 
     def test_lock_offset_never_goes_back_below_the_live_lock(self):
         self.assertGreaterEqual(build.LOCKED_BUMP_OFFSET, 51)
@@ -134,7 +134,7 @@ class LockedExtensionTests(unittest.TestCase):
     def test_build_refuses_to_run_without_webtoon_hentai(self):
         with self.assertRaises(SystemExit):
             build.lock_check(set(self.NHENTAI))
-        build.lock_check(set(self.NHENTAI) | {self.WEBTOON_HENTAI})
+        build.lock_check(set(build.PERMANENT_LOCKS) | build.PERMANENT_WORD_LOCKS)
 
     def test_every_source_with_hentai_in_its_name_is_locked(self):
         # Isma, 2026-11-15: "block all the other pages where the name hentai is in them"
@@ -190,6 +190,37 @@ class LockedExtensionTests(unittest.TestCase):
             ("Zerosum Online", "eu.kanade.tachiyomi.extension.ja.zerosumonline"),
         ):
             self.assertFalse(build.is_locked({"name": name, "pkg": pkg}, locked), name)
+
+    ADULT_ECCHI_ERO = (
+        ("Free Adult Comix", "eu.kanade.tachiyomi.extension.all.freeadultcomix"),
+        ("MyAdultComics", "eu.kanade.tachiyomi.extension.en.myadultcomics"),
+        ("MangaworldAdult", "eu.kanade.tachiyomi.extension.it.mangaworldadult"),
+        ("Super Ecchi", "eu.kanade.tachiyomi.extension.pt.superecchi"),
+        ("Ecchi-Doujin", "eu.kanade.tachiyomi.extension.th.ecchidoujin"),
+        ("Ero18x", "eu.kanade.tachiyomi.extension.en.ero18x"),
+        ("Erofus", "eu.kanade.tachiyomi.extension.en.erofus"),
+    )
+
+    def test_adult_ecchi_ero_sources_are_permanently_locked(self):
+        # PERMANENT (Isma, 2026-11-16: "block it so i can never open it again like ... the vpn"). Never delete or loosen.
+        locked = set() | build.PERMANENT_LOCKS | build.PERMANENT_WORD_LOCKS  # even with an empty strict.txt
+        for name, pkg in self.ADULT_ECCHI_ERO:
+            self.assertIn(pkg, build.PERMANENT_LOCKS)
+            self.assertTrue(build.is_locked({"name": name, "pkg": pkg}, locked), name)
+            self.assertIsNone(build.exclusion_reason({"name": name, "pkg": pkg}, {pkg, name.lower()}), name)
+
+    def test_adult_ecchi_ero_word_locks_are_permanent(self):
+        # PERMANENT (Isma, 2026-11-16). Future sources with these words are locked even if strict.txt is emptied.
+        self.assertEqual({"*adult*", "*ecchi*", "ero*"}, set(build.PERMANENT_WORD_LOCKS))
+        locked = set() | build.PERMANENT_LOCKS | build.PERMANENT_WORD_LOCKS
+        for name in ("Adult Manga New", "Some Ecchi Site", "Erotic Comics"):
+            self.assertTrue(build.is_locked({"name": name, "pkg": "p"}, locked), name)
+
+    def test_build_refuses_to_run_without_the_adult_ecchi_ero_lock(self):
+        full = set(build.PERMANENT_LOCKS) | build.PERMANENT_WORD_LOCKS
+        for missing in ("*adult*", "*ecchi*", "ero*", "eu.kanade.tachiyomi.extension.en.erofus"):
+            with self.assertRaises(SystemExit):
+                build.lock_check(full - {missing})
 
 
 if __name__ == "__main__":
